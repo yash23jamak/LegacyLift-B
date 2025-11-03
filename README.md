@@ -57,7 +57,7 @@ Uploads a JSP file for AI analysis.
 
 **Example (cURL):**
 ```bash
-curl --location 'http://localhost:3000/api/analyze' --form 'files=@"/C:/Users/arokiaraj.j/Documents/Doctor-Patient-Portal-AdvanceJavaWebProject-main/Doctor-Patient-Portal-AdvanceJavaWebProject-main/Doctor-Patient-Portal/user_login.jsp"'
+curl --location 'http://localhost:3000/api/analyze' --form 'folder=@"/C:/path/Documents/Doctor-Patient-Portal-AdvanceJavaWebProject-main/Doctor-Patient-Portal-AdvanceJavaWebProject-main/Doctor-Patient-Portal/user_login.jsp"'
 ```
 
 **Sample Response:**
@@ -90,9 +90,7 @@ LegacyLift-B/
 │   ├── routes/
 │   ├── services/
 │   ├── utils/
-│   ├── app.js
 │   └── server.js
-├── uploads/
 ├── .env
 ├── package.json
 └── README.md
@@ -138,10 +136,3 @@ LegacyLift-B/
 Licensed under the **MIT License**.
 
 ---
-
-## 👨‍💻 Author
-
-**Mr. White (Divya)**  
-💼 MEAN Stack Developer | ⚙️ Node.js | ☁️ AWS | 🧠 AI Integrations  
-📧 your.email@example.com  
-🌐 https://github.com/your-username
