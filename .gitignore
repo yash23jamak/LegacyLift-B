@@ -8,10 +8,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS-specific files
-.DS_Store
-Thumbs.db
-
 # IDE/editor folders
 .vscode/
 .idea/
@@ -22,10 +18,6 @@ build/
 
 # Coverage reports
 coverage/
-
-# Temporary files
-*.tmp
-*.swp
 
 # Dependency lock files (optional)
 package-lock.json
