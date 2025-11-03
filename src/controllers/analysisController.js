@@ -2,22 +2,18 @@ const AdmZip = require('adm-zip');
 const axios = require('axios');
 const dotenv = require('dotenv');
 dotenv.config();
-const { ANALYSIS_PROMPT, REPO_ANALYSIS_PROMPT, ALLOWED_EXTENSIONS } = require('../utils/prompt');
+const { ANALYSIS_PROMPT, REPO_ANALYSIS_PROMPT, ALLOWED_EXTENSIONS, checkRepoForJsp } = require('../utils/prompt');
 
 const apiUrl = process.env.API_URL;
 const apiKey = process.env.API_KEY;
 const apiModel = process.env.AI_MODAL;
 
 exports.analyzeProject = async (req, res) => {
-    console.log("Received analyze request");
-
     try {
         let prompt;
 
         // ✅ Case 1: ZIP file upload
         if (req.file) {
-            console.log("Analyzing uploaded ZIP file:", req.file.originalname);
-
             const zip = new AdmZip(req.file.buffer);
             const zipEntries = zip.getEntries();
 
@@ -32,7 +28,13 @@ exports.analyzeProject = async (req, res) => {
                 return res.status(400).json({ error: "ZIP file contains no allowed file types." });
             }
 
-            // Limit combined content size
+
+            // Check for .jsp files
+            const hasJsp = files.some(file => file.name.endsWith('.jsp'));
+            if (!hasJsp) {
+                return res.status(400).json({ error: "Not JSP Project, Please Re-Upload." });
+            }
+
             let combinedContent = '';
             for (const file of files) {
                 if ((combinedContent.length + file.content.length) > 100000) break;
@@ -45,15 +47,24 @@ exports.analyzeProject = async (req, res) => {
         // ✅ Case 2: Repo URL analysis
         else if (req.body.repoUrl) {
             const repoUrl = req.body.repoUrl;
-            console.log("Analyzing repository URL:", repoUrl);
+
+            const containsJsp = await checkRepoForJsp(repoUrl);
+            if (!containsJsp) {
+                return res.status(400).json({
+                    error: "Invalid Project Type",
+                    message: "The provided repository does not contain any .jsp files. Please upload a valid JSP-based project."
+                });
+            }
+
             prompt = REPO_ANALYSIS_PROMPT(repoUrl);
         }
+
 
         else {
             return res.status(400).json({ error: "Please provide either a ZIP file or a repository URL." });
         }
 
-        // ✅ Send prompt to AI model
+        // Send prompt to AI model
         const response = await axios.post(apiUrl, {
             model: apiModel,
             messages: [{ role: "user", content: prompt }],
@@ -69,7 +80,6 @@ exports.analyzeProject = async (req, res) => {
 
         const resultContent = response.data.choices?.[0]?.message?.content || "Analysis failed.";
 
-        // ✅ Extract JSON block
         const match = resultContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         const jsonBlock = match ? match[1].trim() : resultContent.trim();
 

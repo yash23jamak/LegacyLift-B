@@ -1,3 +1,8 @@
+import simpleGit from 'simple-git';
+import tmp from 'tmp';
+import fs from 'fs-extra';
+import path from 'path';
+
 export const ANALYSIS_PROMPT = `Analyzing a legacy JSP project. Your goal is to perform a comprehensive review of the provided frontend project files and return a detailed, structured JSON object containing the analysis results and a roadmap for migrating the project to ReactJS
 IMPORTANT INSTRUCTIONS:
 Your response must be a valid JSON object only
@@ -235,3 +240,40 @@ ${repo_url}`
 export const ALLOWED_EXTENSIONS = [
   '.jsp', '.jspx', '.jspf', '.html', '.htm', '.css', '.js', '.xml', '.properties'
 ];
+
+export async function checkRepoForJsp(repoUrl) {
+  const tmpDir = tmp.dirSync({ unsafeCleanup: true });
+  const repoPath = tmpDir.name;
+  const git = simpleGit();
+
+  try {
+    await git.clone(repoUrl, repoPath);
+
+    let containsJsp = false;
+
+    // Recursively check for .jsp files
+    const checkFiles = async (dir) => {
+      const files = await fs.readdir(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = await fs.stat(fullPath);
+
+        if (stat.isDirectory()) {
+          await checkFiles(fullPath);
+        } else if (file.endsWith('.jsp')) {
+          containsJsp = true;
+          break;
+        }
+      }
+    };
+
+    await checkFiles(repoPath);
+    tmpDir.removeCallback();
+    return containsJsp;
+
+  } catch (err) {
+    tmpDir.removeCallback();
+    console.error("Error checking repo for JSP files:", err);
+    return false;
+  }
+}

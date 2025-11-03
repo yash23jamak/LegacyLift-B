@@ -52,12 +52,13 @@ npm run dev
 
 ## 🧪 API Testing Guide
 
-### 📤 Endpoint: POST /api/analyze
+### 📤 Endpoint: POST /api/analyze-project
 Uploads a JSP file for AI analysis.
 
 **Example (cURL):**
 ```bash
-curl --location 'http://localhost:3000/api/analyze' --form 'folder=@"/C:/path/Documents/Doctor-Patient-Portal-AdvanceJavaWebProject-main/Doctor-Patient-Portal-AdvanceJavaWebProject-main/Doctor-Patient-Portal/user_login.jsp"'
+curl --location 'http://localhost:3000/api/v1/analyze-project' \
+--form 'folder=@"/C:/Users/arokiaraj.j/Downloads/Doctor-Patient-Portal-AdvanceJavaWebProject-main.zip"'
 ```
 
 **Sample Response:**
@@ -88,11 +89,10 @@ LegacyLift-B/
 ├── src/
 │   ├── controllers/
 │   ├── routes/
-│   ├── services/
 │   ├── utils/
-│   └── server.js
 ├── .env
 ├── package.json
+├── server.js
 └── README.md
 ```
 
