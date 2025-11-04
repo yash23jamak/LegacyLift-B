@@ -241,6 +241,17 @@ export const ALLOWED_EXTENSIONS = [
   '.jsp', '.jspx', '.jspf', '.html', '.htm', '.css', '.js', '.xml', '.properties'
 ];
 
+
+const MAX_DEPTH = 10;
+
+/**
+ * Clones a Git repository and checks if it contains any `.jsp` files.
+ * Limits directory traversal depth and handles permission errors safely.
+ *
+ * @param {string} repoUrl - The URL of the Git repository to clone.
+ * @returns {Promise<boolean>} - Returns true if any `.jsp` file is found, otherwise false.
+ */
+
 export async function checkRepoForJsp(repoUrl) {
   const tmpDir = tmp.dirSync({ unsafeCleanup: true });
   const repoPath = tmpDir.name;
@@ -251,16 +262,38 @@ export async function checkRepoForJsp(repoUrl) {
 
     let containsJsp = false;
 
-    // Recursively check for .jsp files
-    const checkFiles = async (dir) => {
-      const files = await fs.readdir(dir);
+    const checkFiles = async (dir, depth = 0) => {
+      if (depth > MAX_DEPTH || containsJsp) return;
+
+      let files;
+      try {
+        files = await fs.readdir(dir);
+      } catch (err) {
+        if (err.code === 'EACCES') {
+          console.warn(`Permission denied: ${dir}`);
+          return;
+        }
+        throw err;
+      }
+
       for (const file of files) {
+        if (containsJsp) break;
+
         const fullPath = path.join(dir, file);
-        const stat = await fs.stat(fullPath);
+        let stat;
+        try {
+          stat = await fs.stat(fullPath);
+        } catch (err) {
+          if (err.code === 'EACCES') {
+            console.warn(`Permission denied: ${fullPath}`);
+            continue;
+          }
+          throw err;
+        }
 
         if (stat.isDirectory()) {
-          await checkFiles(fullPath);
-        } else if (file.endsWith('.jsp')) {
+          await checkFiles(fullPath, depth + 1);
+        } else if (file.toLowerCase().endsWith('.jsp')) {
           containsJsp = true;
           break;
         }
@@ -268,12 +301,12 @@ export async function checkRepoForJsp(repoUrl) {
     };
 
     await checkFiles(repoPath);
-    tmpDir.removeCallback();
     return containsJsp;
 
   } catch (err) {
-    tmpDir.removeCallback();
     console.error("Error checking repo for JSP files:", err);
     return false;
+  } finally {
+    tmpDir.removeCallback(); // Always clean up
   }
 }

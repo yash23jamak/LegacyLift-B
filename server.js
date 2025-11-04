@@ -8,7 +8,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const allowedOrigins = ['http://localhost:8080', 'http://192.168.29.6:8080'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -27,7 +27,7 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.use('/api', analysisRoute);
+app.use('/api/v1', analysisRoute);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

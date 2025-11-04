@@ -13,6 +13,9 @@ const apiUrl = process.env.API_URL;
 const apiKey = process.env.API_KEY;
 const apiModel = process.env.AI_MODAL;
 
+if (!apiUrl || !apiKey || !apiModel) {
+    throw new Error('Missing required environment variables');
+}
 /**
  * Analyzes the contents of a ZIP file to extract and evaluate JSP-based project files.
  * @param {Buffer} fileBuffer - The uploaded ZIP file buffer.
@@ -23,7 +26,10 @@ export async function analyzeZipFile(fileBuffer) {
     const zipEntries = zip.getEntries();
 
     const files = zipEntries
-        .filter(entry => !entry.isDirectory && ALLOWED_EXTENSIONS.some(ext => entry.entryName.endsWith(ext)))
+        .filter(entry =>
+            !entry.isDirectory &&
+            ALLOWED_EXTENSIONS.some(ext => entry.entryName.toLowerCase().endsWith(ext))
+        )
         .map(entry => ({
             name: entry.entryName,
             content: entry.getData().toString('utf-8')
@@ -33,18 +39,17 @@ export async function analyzeZipFile(fileBuffer) {
         throw new Error("ZIP file contains no allowed file types.");
     }
 
-    const hasJsp = files.some(file => file.name.endsWith('.jsp'));
+    const hasJsp = files.some(file => file.name.toLowerCase().endsWith('.jsp'));
     if (!hasJsp) {
         throw new Error("The uploaded ZIP file does not contain any JSP files. Please upload a valid JSP-based project.");
     }
 
     let combinedContent = '';
     for (const file of files) {
-        if ((combinedContent.length + file.content.length) > 100000) break;
         combinedContent += `File: ${file.name}\n${file.content}\n\n`;
     }
 
-    const prompt = `${ANALYSIS_PROMPT} : \n\n${combinedContent}`;
+    const prompt = `${ANALYSIS_PROMPT}:\n\n${combinedContent}`;
     return await sendToAI(prompt);
 }
 
@@ -76,27 +81,49 @@ export async function analyzeRepo(repoUrl) {
  * @param {string} prompt - The prompt string to send to the AI model.
  * @returns {Object} - Parsed JSON response from the AI or raw content if parsing fails.
  */
+const MAX_RAW_LENGTH = 2000; // Limit raw content in error response
+const MAX_RETRIES = 2;
+
 async function sendToAI(prompt) {
-    const response = await axios.post(apiUrl, {
-        model: apiModel,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2
-    }, {
-        headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8080",
-            "X-Title": "Analyzer"
+    let attempt = 0;
+    let response;
+
+    while (attempt <= MAX_RETRIES) {
+        try {
+            response = await axios.post(apiUrl, {
+                model: apiModel,
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.2
+            }, {
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    "Content-Type": "application/json"
+                }
+            });
+
+            const resultContent = response.data.choices?.[0]?.message?.content || "Analysis failed.";
+            const match = resultContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+            const jsonBlock = match ? match[1].trim() : resultContent.trim();
+
+            try {
+                return JSON.parse(jsonBlock);
+            } catch (parseError) {
+                console.error("Failed to parse AI response as JSON:", parseError);
+                return {
+                    error: "Failed to parse analysis report",
+                    raw: resultContent.slice(0, MAX_RAW_LENGTH) + (resultContent.length > MAX_RAW_LENGTH ? '... [truncated]' : '')
+                };
+            }
+
+        } catch (err) {
+            attempt++;
+            console.error(`AI request failed (attempt ${attempt}):`, err.message);
+
+            if (attempt > MAX_RETRIES) {
+                return {
+                    error: "Failed to connect to AI service after multiple attempts. Please try again later."
+                };
+            }
         }
-    });
-
-    const resultContent = response.data.choices?.[0]?.message?.content || "Analysis failed.";
-    const match = resultContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    const jsonBlock = match ? match[1].trim() : resultContent.trim();
-
-    try {
-        return JSON.parse(jsonBlock);
-    } catch {
-        return { error: "Failed to parse analysis report", raw: resultContent };
     }
 }

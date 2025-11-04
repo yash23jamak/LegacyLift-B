@@ -26,7 +26,14 @@ export async function analyzeProject(req, res) {
 
         res.status(200).json({ report });
     } catch (error) {
-        // console.error("Analysis error:", error);
-        res.status(400).json({ error: error.message });
+        // Determine if it's a client or server error
+        const isClientError = error instanceof multer.MulterError || error.message.includes('ZIP') || error.message.includes('file');
+
+        // Send a sanitized message to the client
+        res.status(isClientError ? 400 : 500).json({
+            error: isClientError
+                ? error.message
+                : 'An unexpected error occurred. Please try again later.'
+        });
     }
 }
