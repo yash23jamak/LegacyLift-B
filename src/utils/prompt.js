@@ -255,7 +255,6 @@ export const ALLOWED_EXTENSIONS = [
   ".properties",
 ];
 
-
 const MAX_DEPTH = 10;
 
 /**
@@ -283,7 +282,7 @@ export async function checkRepoForJsp(repoUrl) {
       try {
         files = await fs.readdir(dir);
       } catch (err) {
-        if (err.code === 'EACCES') {
+        if (err.code === "EACCES") {
           console.warn(`Permission denied: ${dir}`);
           return;
         }
@@ -298,7 +297,7 @@ export async function checkRepoForJsp(repoUrl) {
         try {
           stat = await fs.stat(fullPath);
         } catch (err) {
-          if (err.code === 'EACCES') {
+          if (err.code === "EACCES") {
             console.warn(`Permission denied: ${fullPath}`);
             continue;
           }
@@ -306,13 +305,8 @@ export async function checkRepoForJsp(repoUrl) {
         }
 
         if (stat.isDirectory()) {
-<<<<<<< Updated upstream
           await checkFiles(fullPath, depth + 1);
-        } else if (file.toLowerCase().endsWith('.jsp')) {
-=======
-          await checkFiles(fullPath);
-        } else if (file.endsWith(".jsp")) {
->>>>>>> Stashed changes
+        } else if (file.toLowerCase().endsWith(".jsp")) {
           containsJsp = true;
           break;
         }
