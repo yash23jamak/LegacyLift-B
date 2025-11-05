@@ -32,9 +32,9 @@ npm install
 Create a `.env` file in the root directory.
 ```env
 PORT=3000
-API_KEY=your-ai-api-key-here
-API_URL=your-api-url
-AI_MODEL=your-api-model
+NODE_API_KEY=your-ai-api-key-here
+NODE_API_URL=your-api-url
+NODE_AI_MODAL=your-api-model
 ```
 
 ### 4️⃣ Start the Server

@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit'
 import { analyzeProject } from '../controllers/analysisController.js';
+import { convertToReact } from '../controllers/migrationController.js';
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ const upload = multer({
 });
 
 router.post('/analyze-project', limiter, upload.single('folder'), analyzeProject);
+router.post('/analyze-migration', upload.single('folder'), convertToReact);
 
 export default router;

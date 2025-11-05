@@ -9,9 +9,9 @@ import {
 import dotenv from 'dotenv';
 dotenv.config();
 
-const apiUrl = process.env.API_URL;
-const apiKey = process.env.API_KEY;
-const apiModel = process.env.AI_MODAL;
+const apiUrl = process.env.NODE_API_URL;
+const apiKey = process.env.NODE_API_KEY;
+const apiModel = process.env.NODE_AI_MODAL;
 
 if (!apiUrl || !apiKey || !apiModel) {
     throw new Error('Missing required environment variables');
