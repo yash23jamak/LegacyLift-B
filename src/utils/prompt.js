@@ -472,7 +472,6 @@ export async function checkRepoForJsp(repoUrl) {
     await checkFiles(repoPath);
     return containsJsp;
   } catch (err) {
-    console.error("Error checking repo for JSP files:", err);
     return false;
   } finally {
     tmpDir.removeCallback(); // Always clean up
