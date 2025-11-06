@@ -84,9 +84,8 @@ export async function analyzeRepo(repoUrl) {
  * @param {string} prompt - The prompt string to send to the AI model.
  * @returns {Object} - Parsed JSON response from the AI or raw content if parsing fails.
  */
-const MAX_RAW_LENGTH = 200000; // Limit raw content in error response
-
 export async function sendToAI(prompt) {
+    const MAX_RAW_LENGTH = 200000;
     try {
         const response = await axios.post(apiUrl, {
             model: apiModel,

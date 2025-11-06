@@ -9,6 +9,13 @@ import path from 'path';
 
 const zipPath = path.join(process.cwd(), 'uploads', 'cached.zip');
 
+
+/**
+ * Analyzes a project based on different input types:
+ * 1. ZIP file uploaded by the user
+ * 2. Repository URL provided in the request body
+ * 3. Cached ZIP file previously uploaded
+ */
 export async function analyzeProject(req, res) {
     try {
         let report;
@@ -39,12 +46,10 @@ export async function analyzeProject(req, res) {
             }
             const buffer = fs.readFileSync(zipPath);
             const files = await analyzeMigrationZip(buffer);
-            console.log(files, "files");
             return res.status(200).json(files);
         }
         return res.status(400).json({ error: "Please provide a ZIP file, repository URL, or useCachedZip flag." });
     } catch (error) {
-        console.log(error.message, "error");
         const isClientError = error.message.includes('ZIP') || error.message.includes('file');
         res.status(isClientError ? 400 : 500).json({
             error: isClientError
