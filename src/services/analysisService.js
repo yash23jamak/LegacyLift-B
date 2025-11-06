@@ -37,7 +37,6 @@ export async function analyzeZipFile(fileBuffer) {
             name: entry.entryName,
             content: entry.getData().toString('utf-8')
         }));
-    console.log(files, "files")
 
     if (files.length === 0) {
         throw new Error("ZIP file contains no allowed file types.");
@@ -105,7 +104,6 @@ export async function sendToAI(prompt) {
         try {
             return JSON.parse(jsonBlock);
         } catch (parseError) {
-            console.error("Failed to parse AI response as JSON:", parseError);
             return {
                 error: "Failed to parse analysis report",
                 raw: resultContent.slice(0, MAX_RAW_LENGTH) + (resultContent.length > MAX_RAW_LENGTH ? '... [truncated]' : '')
@@ -113,7 +111,6 @@ export async function sendToAI(prompt) {
         }
 
     } catch (err) {
-        console.error("AI request failed:", err.message);
         return {
             error: "Failed to connect to AI service.",
             details: err.message
