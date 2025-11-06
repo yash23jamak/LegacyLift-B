@@ -1,18 +1,28 @@
-import { analyzeZipFile, analyzeRepo } from '../services/analysisService.js';
 
-/**
- * Controller function to handle project analysis requests.
- * It supports both ZIP file uploads and repository URL submissions.
- */
+import {
+    analyzeZipFile,
+    analyzeRepo,
+    analyzeMigrationZip
+} from '../services/analysisService.js';
+import fs from 'fs';
+import path from 'path';
+
+const zipPath = path.join(process.cwd(), 'uploads', 'cached.zip');
+
 export async function analyzeProject(req, res) {
     try {
         let report;
 
         if (req.file) {
-            report = await analyzeZipFile(req.file.buffer);
-        } else if (req.body.repoUrl) {
-            const repoUrl = req.body.repoUrl;
+            // Step 1: ZIP uploaded and saved to disk
+            const buffer = fs.readFileSync(zipPath);
+            report = await analyzeZipFile(buffer);
+            return res.status(200).json({ report });
+        }
 
+        if (req.body.repoUrl) {
+            // Step 2: Analyze repo URL
+            const repoUrl = req.body.repoUrl;
             try {
                 new URL(repoUrl);
             } catch {
@@ -20,16 +30,22 @@ export async function analyzeProject(req, res) {
             }
 
             report = await analyzeRepo(repoUrl);
-        } else {
-            return res.status(400).json({ error: "Please provide either a ZIP file or a repository URL." });
+            return res.status(200).json({ report });
         }
 
-        res.status(200).json({ report });
+        if (req.body.useCachedZip === true) {
+            if (!fs.existsSync(zipPath)) {
+                return res.status(400).json({ error: "No ZIP file has been uploaded yet." });
+            }
+            const buffer = fs.readFileSync(zipPath);
+            const files = await analyzeMigrationZip(buffer);
+            console.log(files, "files");
+            return res.status(200).json(files);
+        }
+        return res.status(400).json({ error: "Please provide a ZIP file, repository URL, or useCachedZip flag." });
     } catch (error) {
-        // Determine if it's a client or server error
-        const isClientError = error instanceof multer.MulterError || error.message.includes('ZIP') || error.message.includes('file');
-
-        // Send a sanitized message to the client
+        console.log(error.message, "error");
+        const isClientError = error.message.includes('ZIP') || error.message.includes('file');
         res.status(isClientError ? 400 : 500).json({
             error: isClientError
                 ? error.message
