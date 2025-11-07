@@ -1,4 +1,5 @@
 import axios from 'axios';
+import AdmZip from 'adm-zip';
 import {
     ANALYSIS_PROMPT,
     REPO_ANALYSIS_PROMPT,
