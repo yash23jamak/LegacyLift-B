@@ -1,13 +1,11 @@
-import AdmZip from 'adm-zip';
 import axios from 'axios';
-import { MIGRATION_PROMPT } from '../utils/prompt.js';
-import { GoogleGenAI } from "@google/genai";
-
 import {
     ANALYSIS_PROMPT,
     REPO_ANALYSIS_PROMPT,
     ALLOWED_EXTENSIONS,
-    checkRepoForJsp
+    MIGRATION_REPORT_PROMPT,
+    checkRepoForJsp,
+    extractFilesFromZip
 } from '../utils/prompt.js';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -79,12 +77,63 @@ export async function analyzeRepo(repoUrl) {
 }
 
 /**
+ * Generates a migration report based on the provided ZIP file.
+ * @param {string} zipPath - The path to the cached ZIP file.
+ * @returns {Object} - The AI-generated migration report.
+ */
+export async function generateMigrationReport(fileBuffer) {
+    try {
+        const extractedFiles = extractFilesFromZip(fileBuffer);
+
+        if (extractedFiles.length === 0) {
+            return { error: "ZIP file contains no files for migration analysis." };
+        }
+
+        const CHUNK_SIZE = 5;
+        const MAX_CONTENT_LENGTH = 10000;
+        const chunks = [];
+        for (let i = 0; i < extractedFiles.length; i += CHUNK_SIZE) {
+            chunks.push(extractedFiles.slice(i, i + CHUNK_SIZE));
+        }
+
+        const allReports = [];
+
+        for (const chunk of chunks) {
+            let combinedContent = '';
+            for (const file of chunk) {
+                let content = file.content;
+                if (content.length > MAX_CONTENT_LENGTH) {
+                    content = content.slice(0, MAX_CONTENT_LENGTH) + '\n// Content truncated\n';
+                }
+                combinedContent += `File: ${file.name}\n${content}\n\n`;
+            }
+
+            const prompt = `${MIGRATION_REPORT_PROMPT}\n\n${combinedContent}`;
+
+            // Send prompt to AI
+            const report = await sendToAI(prompt);
+            allReports.push(report);
+        }
+
+        // Return combined report
+        return { report: allReports };
+
+    } catch (error) {
+        return {
+            error: "Failed to generate migration report.",
+            details: error.message
+        };
+    }
+}
+
+/**
  * Sends a prompt to the AI model and returns the parsed JSON response.
  * @param {string} prompt - The prompt string to send to the AI model.
  * @returns {Object} - Parsed JSON response from the AI or raw content if parsing fails.
  */
 export async function sendToAI(prompt) {
-    const MAX_RAW_LENGTH = 200000;
+    const allReports = [];
+
     try {
         const response = await axios.post(apiUrl, {
             model: apiModel,
@@ -98,17 +147,28 @@ export async function sendToAI(prompt) {
         });
 
         const resultContent = response.data.choices?.[0]?.message?.content || "Analysis failed.";
+
+        // Extract content inside code block
         const match = resultContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+
         const jsonBlock = match ? match[1].trim() : resultContent.trim();
 
-        try {
-            return JSON.parse(jsonBlock);
-        } catch (parseError) {
-            return {
-                error: "Failed to parse analysis report",
-                raw: resultContent.slice(0, MAX_RAW_LENGTH) + (resultContent.length > MAX_RAW_LENGTH ? '... [truncated]' : '')
-            };
+        // Split multiple JSON arrays if present
+        const jsonBlocks = jsonBlock.split(/\n(?=\[)/);
+
+        for (const block of jsonBlocks) {
+            try {
+                const parsed = JSON.parse(block.trim());
+                allReports.push(parsed);
+            } catch (err) {
+                allReports.push({
+                    error: "Failed to parse part of the report",
+                    raw: block
+                });
+            }
         }
+
+        return allReports;
 
     } catch (err) {
         return {
@@ -116,109 +176,4 @@ export async function sendToAI(prompt) {
             details: err.message
         };
     }
-}
-
-// *******Gemini AI*******
-const ai = new GoogleGenAI({
-    apiKey: process.env.NODE_GEMINI_API_KEY,
-});
-
-/**
- * Extracts all files from a ZIP buffer and returns their names and contents.
- * @param {Buffer} fileBuffer
- * @returns {Array<{name: string, content: string}>}
- */
-export function extractFilesFromZip(fileBuffer) {
-    const zip = new AdmZip(fileBuffer);
-    const zipEntries = zip.getEntries();
-
-    return zipEntries.map(entry => ({
-        name: entry.entryName,
-        content: entry.getData().toString("utf-8"),
-    }));
-}
-
-/**
- * Uses Gemini AI to transform extracted ZIP files into React-compatible format.
- * Returns a list of files with name and content.
- * @param {Buffer} fileBuffer
- * @returns {Promise<Array<{name: string, content: string}>>}
- */
-// *********With Chunk *********
-export async function analyzeMigrationZip(fileBuffer) {
-    const extractedFiles = extractFilesFromZip(fileBuffer);
-    if (extractedFiles.length === 0) {
-        throw new Error("ZIP file contains no files for migration analysis.");
-    }
-
-    const CHUNK_SIZE = 5;
-    const MAX_CONTENT_LENGTH = 10000;
-    const allResults = [];
-
-    const chunks = [];
-    for (let i = 0; i < extractedFiles.length; i += CHUNK_SIZE) {
-        chunks.push(extractedFiles.slice(i, i + CHUNK_SIZE));
-    }
-
-    for (const chunk of chunks) {
-        let combinedContent = '';
-        for (const file of chunk) {
-            let content = file.content;
-            if (content.length > MAX_CONTENT_LENGTH) {
-                content = content.slice(0, MAX_CONTENT_LENGTH) + '\n// Content truncated\n';
-            }
-            combinedContent += `File: ${file.name}\n${content}\n\n`;
-        }
-
-        const prompt = `${MIGRATION_PROMPT}\n\n${combinedContent}`;
-
-        try {
-            const response = await ai.models.generateContent({
-                model: process.env.NODE_GEMINI_MODEL,
-                contents: prompt,
-            });
-
-            let rawText = response.text;
-
-            // Remove Markdown code block markers
-            rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
-
-            // Try parsing directly first
-            try {
-                const parsedJson = JSON.parse(rawText);
-                if (Array.isArray(parsedJson)) {
-                    allResults.push(...parsedJson);
-                    continue;
-                }
-            } catch (e) {
-                // Fallback: escape content manually
-                const safeText = rawText
-                    .replace(/\\/g, '\\\\') // Escape backslashes
-                    .replace(/"/g, '\\"')   // Escape quotes
-                    .replace(/\n/g, '\\n'); // Escape newlines
-
-                try {
-                    const parsedJson = JSON.parse(safeText);
-                    if (Array.isArray(parsedJson)) {
-                        allResults.push(...parsedJson);
-                        continue;
-                    }
-                } catch (finalError) {
-                    allResults.push({
-                        error: "AI response could not be parsed as valid file list.",
-                        rawResponse: rawText,
-                        suggestion: "Please check the AI prompt or manually inspect the returned response."
-                    });
-                }
-            }
-        } catch (error) {
-            allResults.push({
-                error: "AI response could not be parsed as valid file list.",
-                rawResponse: error?.response?.data || error.message || "No response from AI",
-                suggestion: "Please check the AI prompt or manually inspect the returned response."
-            });
-        }
-    }
-
-    return allResults;
 }

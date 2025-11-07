@@ -2,6 +2,7 @@ import simpleGit from "simple-git";
 import tmp from "tmp";
 import fs from "fs-extra";
 import path from "path";
+import AdmZip from 'adm-zip';
 
 export const ANALYSIS_PROMPT = `Analyzing a legacy JSP project. Your goal is to perform a comprehensive review of the provided frontend project files and return a detailed, structured JSON object containing the analysis results and a roadmap for migrating the project to ReactJS
 IMPORTANT INSTRUCTIONS:
@@ -243,6 +244,78 @@ Analyze the provided code of Repo and generate the report. Base all findings str
  
 ${repo_url}`;
 
+// Migration Report Prompt
+export const MIGRATION_REPORT_PROMPT = `
+You are an expert software architect specializing in modernizing legacy Java/JSP applications into ReactJS.
+
+I will provide you with details of a JSP legacy project.
+
+Your task is to:
+1. Analyze the legacy project features, libraries, and patterns.
+2. Map each legacy feature to its modern ReactJS equivalent.
+3. Output the result in the following JSON format:
+
+[
+  {
+    "id": "1",
+    "legacyFeature": "JSP Pages & Servlets",
+    "reactEquivalent": "React Components",
+    "description": "Server-side rendered pages replaced with reusable, composable React components with client-side rendering",
+    "category": "rendering",
+    "complexity": "high",
+    "benefits": ["Reusability", "Better Performance", "Modularity"]
+  },
+  {
+    "id": "2",
+    "legacyFeature": "Session Attributes",
+    "reactEquivalent": "useState / useContext",
+    "description": "Server-side session management migrated to client-side state management using React hooks",
+    "category": "state",
+    "complexity": "medium",
+    "benefits": ["Real-time Updates", "Type Safety", "Predictable State"]
+  }
+]
+
+Notes:
+- "id" should be incremental numbers.
+- "category" can be one of: rendering, state, routing, data, security, performance, etc.
+- "complexity" should be one of: low, medium, or high.
+
+---
+
+4. After the feature mapping, also generate a **Summary of Improvements** in this JSON format:
+
+[
+  {
+    "icon": "Gauge",
+    "title": "Faster Load Times",
+    "stat": "70%",
+    "description": "Reduction in initial page load with code splitting"
+  },
+  {
+    "icon": "Box",
+    "title": "Modular Components",
+    "stat": "95%",
+    "description": "Component reusability across the application"
+  }
+]
+
+Notes:
+- "icon" should be a simple keyword (e.g., Gauge, Box, Shield, Layers, etc.).
+- "stat" should be an approximate percentage improvement.
+- "title" should highlight the benefit.
+- "description" should explain the improvement in one sentence.
+
+---
+
+Final Output:
+- First, provide the **Feature Mapping JSON**.
+- Then, provide the **Summary of Improvements JSON**.
+- Do not include explanations outside of JSON. Only return the JSON objects.
+`;
+
+
+
 // Migration prompt
 export const MIGRATION_PROMPT = `
 Migrating a legacy JSP (Java Server Pages) application into a fully modern, client-side React project.
@@ -477,3 +550,20 @@ export async function checkRepoForJsp(repoUrl) {
     tmpDir.removeCallback(); // Always clean up
   }
 }
+
+/**
+ * Extracts all files from a ZIP buffer and returns their names and contents.
+ * @param {Buffer} fileBuffer
+ * @returns {Array<{name: string, content: string}>}
+ */
+export function extractFilesFromZip(fileBuffer) {
+  const zip = new AdmZip(fileBuffer);
+  const zipEntries = zip.getEntries();
+
+  return zipEntries.map(entry => ({
+    name: entry.entryName,
+    content: entry.getData().toString("utf-8"),
+  }));
+}
+
+

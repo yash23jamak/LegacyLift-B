@@ -2,7 +2,7 @@
 import {
     analyzeZipFile,
     analyzeRepo,
-    analyzeMigrationZip
+    generateMigrationReport
 } from '../services/analysisService.js';
 import fs from 'fs';
 import path from 'path';
@@ -20,15 +20,15 @@ export async function analyzeProject(req, res) {
     try {
         let report;
 
+        // Step 1: ZIP uploaded 
         if (req.file) {
-            // Step 1: ZIP uploaded and saved to disk
             const buffer = fs.readFileSync(zipPath);
             report = await analyzeZipFile(buffer);
             return res.status(200).json({ report });
         }
 
+        // Step 2: Analyze repo URL
         if (req.body.repoUrl) {
-            // Step 2: Analyze repo URL
             const repoUrl = req.body.repoUrl;
             try {
                 new URL(repoUrl);
@@ -40,14 +40,16 @@ export async function analyzeProject(req, res) {
             return res.status(200).json({ report });
         }
 
-        if (req.body.useCachedZip === true) {
+        // Step 3: Generate Migration Report
+        if (req.body.generateMigrationReport === true) {
             if (!fs.existsSync(zipPath)) {
                 return res.status(400).json({ error: "No ZIP file has been uploaded yet." });
             }
             const buffer = fs.readFileSync(zipPath);
-            const files = await analyzeMigrationZip(buffer);
-            return res.status(200).json(files);
+            const result = await generateMigrationReport(buffer);
+            return res.status(result.error ? 400 : 200).json(result);
         }
+
         return res.status(400).json({ error: "Please provide a ZIP file, repository URL, or useCachedZip flag." });
     } catch (error) {
         const isClientError = error.message.includes('ZIP') || error.message.includes('file');
