@@ -1,17 +1,19 @@
-import AdmZip from 'adm-zip';
 import axios from 'axios';
+import AdmZip from 'adm-zip';
 import {
     ANALYSIS_PROMPT,
     REPO_ANALYSIS_PROMPT,
     ALLOWED_EXTENSIONS,
-    checkRepoForJsp
+    MIGRATION_REPORT_PROMPT,
+    checkRepoForJsp,
+    extractFilesFromZip
 } from '../utils/prompt.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const apiUrl = process.env.API_URL;
-const apiKey = process.env.API_KEY;
-const apiModel = process.env.AI_MODAL;
+const apiUrl = process.env.NODE_API_URL;
+const apiKey = process.env.NODE_API_KEY;
+const apiModel = process.env.NODE_AI_MODAL;
 
 if (!apiUrl || !apiKey || !apiModel) {
     throw new Error('Missing required environment variables');
@@ -53,7 +55,6 @@ export async function analyzeZipFile(fileBuffer) {
     return await sendToAI(prompt);
 }
 
-
 /**
  * Analyzes a remote repository to check if it contains JSP files and generates an AI-based report.
  * @param {string} repoUrl - The URL of the repository to analyze.
@@ -77,53 +78,103 @@ export async function analyzeRepo(repoUrl) {
 }
 
 /**
+ * Generates a migration report based on the provided ZIP file.
+ * @param {string} zipPath - The path to the cached ZIP file.
+ * @returns {Object} - The AI-generated migration report.
+ */
+export async function generateMigrationReport(fileBuffer) {
+    try {
+        const extractedFiles = extractFilesFromZip(fileBuffer);
+
+        if (extractedFiles.length === 0) {
+            return { error: "ZIP file contains no files for migration analysis." };
+        }
+
+        const CHUNK_SIZE = 5;
+        const MAX_CONTENT_LENGTH = 10000;
+        const chunks = [];
+        for (let i = 0; i < extractedFiles.length; i += CHUNK_SIZE) {
+            chunks.push(extractedFiles.slice(i, i + CHUNK_SIZE));
+        }
+
+        const allReports = [];
+
+        for (const chunk of chunks) {
+            let combinedContent = '';
+            for (const file of chunk) {
+                let content = file.content;
+                if (content.length > MAX_CONTENT_LENGTH) {
+                    content = content.slice(0, MAX_CONTENT_LENGTH) + '\n// Content truncated\n';
+                }
+                combinedContent += `File: ${file.name}\n${content}\n\n`;
+            }
+
+            const prompt = `${MIGRATION_REPORT_PROMPT}\n\n${combinedContent}`;
+
+            // Send prompt to AI
+            const report = await sendToAI(prompt);
+            allReports.push(report);
+        }
+
+        // Return combined report
+        return { report: allReports };
+
+    } catch (error) {
+        return {
+            error: "Failed to generate migration report.",
+            details: error.message
+        };
+    }
+}
+
+/**
  * Sends a prompt to the AI model and returns the parsed JSON response.
  * @param {string} prompt - The prompt string to send to the AI model.
  * @returns {Object} - Parsed JSON response from the AI or raw content if parsing fails.
  */
-const MAX_RAW_LENGTH = 2000; // Limit raw content in error response
-const MAX_RETRIES = 2;
+export async function sendToAI(prompt) {
+    const allReports = [];
 
-async function sendToAI(prompt) {
-    let attempt = 0;
-    let response;
-
-    while (attempt <= MAX_RETRIES) {
-        try {
-            response = await axios.post(apiUrl, {
-                model: apiModel,
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0.2
-            }, {
-                headers: {
-                    Authorization: `Bearer ${apiKey}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            const resultContent = response.data.choices?.[0]?.message?.content || "Analysis failed.";
-            const match = resultContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-            const jsonBlock = match ? match[1].trim() : resultContent.trim();
-
-            try {
-                return JSON.parse(jsonBlock);
-            } catch (parseError) {
-                console.error("Failed to parse AI response as JSON:", parseError);
-                return {
-                    error: "Failed to parse analysis report",
-                    raw: resultContent.slice(0, MAX_RAW_LENGTH) + (resultContent.length > MAX_RAW_LENGTH ? '... [truncated]' : '')
-                };
+    try {
+        const response = await axios.post(apiUrl, {
+            model: apiModel,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.2
+        }, {
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
             }
+        });
 
-        } catch (err) {
-            attempt++;
-            console.error(`AI request failed (attempt ${attempt}):`, err.message);
+        const resultContent = response.data.choices?.[0]?.message?.content || "Analysis failed.";
 
-            if (attempt > MAX_RETRIES) {
-                return {
-                    error: "Failed to connect to AI service after multiple attempts. Please try again later."
-                };
+        // Extract content inside code block
+        const match = resultContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+
+        const jsonBlock = match ? match[1].trim() : resultContent.trim();
+
+        // Split multiple JSON arrays if present
+        const jsonBlocks = jsonBlock.split(/\n(?=\[)/);
+
+        for (const block of jsonBlocks) {
+            try {
+                const parsed = JSON.parse(block.trim());
+                allReports.push(parsed);
+            } catch (err) {
+                allReports.push({
+                    error: "Failed to parse part of the report",
+                    raw: block
+                });
             }
         }
+
+        return allReports;
+
+    } catch (err) {
+        return {
+            error: "Failed to connect to AI service.",
+            details: err.message
+        };
     }
 }
