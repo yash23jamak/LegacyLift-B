@@ -19,11 +19,10 @@ const zipPath = path.join(process.cwd(), 'uploads', 'cached.zip');
 export async function analyzeProject(req, res) {
     try {
         let report;
-
         // Step 1: ZIP uploaded 
         if (req.file) {
             const buffer = fs.readFileSync(zipPath);
-            report = await analyzeZipFile(buffer);
+            report = await analyzeZipFile(buffer,req.body.filterZip);
             return res.status(200).json({ report });
         }
 
@@ -39,6 +38,7 @@ export async function analyzeProject(req, res) {
             report = await analyzeRepo(repoUrl);
             return res.status(200).json({ report });
         }
+
 
         // Step 3: Generate Migration Report
         if (req.body.generateMigrationReport === true) {
