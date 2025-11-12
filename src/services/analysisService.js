@@ -63,7 +63,6 @@ export async function analyzeZipFile(fileBuffer, zipType) {
   } else {
     let combinedContent = [];
     for (const file of files) {
-      // combinedContent += `File: ${file.name}\n${file.content}\n\n`;
       const parts = file.name.split("/");
       const relativePath = parts.slice(1).join("/");
       combinedContent.push({ name: relativePath, content: file.content });
