@@ -1,25 +1,27 @@
 import jwt from 'jsonwebtoken';
-
+import User from '../models/User.js';
+import dotenv from 'dotenv';
+dotenv.config();
 /**
  * @function verifyToken
- * @description Middleware to verify JWT token from the Authorization header.
- * - Extracts token from the header.
- * - Verifies the token using JWT_SECRET.
- * - Attaches decoded user info to the request object.
- * - Calls next() if token is valid.
- * - Returns 401 if token is missing.
- * - Returns 403 if token is invalid or expired.
+ * @description Verifies if the user is authenticated by checking the JWT in the cookie.
+ * - Reads `accessToken` from HTTP-only cookie.
+ * - Verifies token using JWT secret.
+ * - Returns user info if valid, else 401.
  */
-export const verifyToken = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'Access denied. No token provided.' });
-    }
+export const verifyToken = async (req, res, next) => {
     try {
+        const token = req.cookies.accessToken;
+        if (!token) return res.status(401).json({ message: "Access denied. Authentication required. Please log in to continue." });
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+
+        const user = await User.findById(decoded.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        req.user = user;
         next();
     } catch (error) {
-        return res.status(403).json({ message: 'Forbidden. Invalid or expired token.' });
+        return res.status(401).json({ message: "Invalid or expired token" });
     }
 };

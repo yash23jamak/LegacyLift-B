@@ -27,7 +27,6 @@ router.post('/migration-project', verifyToken, handleCachedZipAnalysis);
 // User Authentication Flow
 router.post('/auth/register', register);
 router.post('/auth/login', login);
-router.post('/auth/logout', verifyToken, logout);
-
+router.post('/auth/logout', logout);
 
 export default router;
