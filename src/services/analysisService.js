@@ -10,6 +10,7 @@ import {
 } from '../utils/prompt.js';
 import dotenv from 'dotenv';
 dotenv.config();
+import path from "path";
 
 const apiUrl = process.env.NODE_API_URL;
 const apiKey = process.env.NODE_API_KEY;
@@ -23,36 +24,53 @@ if (!apiUrl || !apiKey || !apiModel) {
  * @param {Buffer} fileBuffer - The uploaded ZIP file buffer.
  * @returns {Object} - The AI-generated analysis report.
  */
-export async function analyzeZipFile(fileBuffer) {
-    const zip = new AdmZip(fileBuffer);
-    const zipEntries = zip.getEntries();
 
-    const files = zipEntries
-        .filter(entry =>
-            !entry.isDirectory &&
-            ALLOWED_EXTENSIONS.some(ext => entry.entryName.toLowerCase().endsWith(ext))
+export async function analyzeZipFile(fileBuffer, zipType) {
+  const zip = new AdmZip(fileBuffer);
+  const zipEntries = zip.getEntries();
+
+  const files = zipEntries
+    .filter(
+      (entry) =>
+        !entry.isDirectory &&
+        ALLOWED_EXTENSIONS.some((ext) =>
+          entry.entryName.toLowerCase().endsWith(ext)
         )
-        .map(entry => ({
-            name: entry.entryName,
-            content: entry.getData().toString('utf-8')
-        }));
+    )
+    .map((entry) => ({
+      name: entry.entryName,
+      content: entry.getData().toString("utf-8"),
+    }));
 
-    if (files.length === 0) {
-        throw new Error("ZIP file contains no allowed file types.");
-    }
+  if (files.length === 0) {
+    throw new Error("ZIP file contains no allowed file types.");
+  }
 
-    const hasJsp = files.some(file => file.name.toLowerCase().endsWith('.jsp'));
-    if (!hasJsp) {
-        throw new Error("The uploaded ZIP file does not contain any JSP files. Please upload a valid JSP-based project.");
-    }
+  const hasJsp = files.some((file) => file.name.toLowerCase().endsWith(".jsp"));
+  if (!hasJsp) {
+    throw new Error(
+      "The uploaded ZIP file does not contain any JSP files. Please upload a valid JSP-based project."
+    );
+  }
 
-    let combinedContent = '';
+  if (zipType === "true") {
+    let combinedContent = "";
     for (const file of files) {
-        combinedContent += `File: ${file.name}\n${file.content}\n\n`;
+      combinedContent += `File: ${file.name}\n${file.content}\n\n`;
     }
 
     const prompt = `${ANALYSIS_PROMPT}:\n\n${combinedContent}`;
     return await sendToAI(prompt);
+  } else {
+    let combinedContent = [];
+    for (const file of files) {
+      const parts = file.name.split("/");
+      const relativePath = parts.slice(1).join("/");
+      combinedContent.push({ name: relativePath, content: file.content });
+    }
+
+    return combinedContent;
+  }
 }
 
 /**
