@@ -1,5 +1,8 @@
 import axios from 'axios';
 import AdmZip from 'adm-zip';
+import fs from 'fs';
+import path from 'path';
+import User from '../models/User.js';
 import {
     ANALYSIS_PROMPT,
     REPO_ANALYSIS_PROMPT,
@@ -18,41 +21,80 @@ const apiModel = process.env.NODE_AI_MODAL;
 if (!apiUrl || !apiKey || !apiModel) {
     throw new Error('Missing required environment variables');
 }
+
 /**
- * Analyzes the contents of a ZIP file to extract and evaluate JSP-based project files.
- * @param {Buffer} fileBuffer - The uploaded ZIP file buffer.
- * @returns {Object} - The AI-generated analysis report.
+ * Analyzes an uploaded ZIP file and processes JSP-based project files.
+ * @param {Buffer} fileBuffer - The ZIP file content as a buffer.
+ * @param {string} zipType - Indicates whether to extract and store files ("true" or "false").
+ * @param {string} userId - The ID of the user for updating project path.
+ * @param {string} zipOriginalName - Original name of the uploaded ZIP file.
+ * @returns {Promise<Object|Array>} - AI analysis report or extracted file details.
  */
-export async function analyzeZipFile(fileBuffer) {
+export async function analyzeZipFile(fileBuffer, zipType, userId, zipOriginalName) {
     const zip = new AdmZip(fileBuffer);
     const zipEntries = zip.getEntries();
 
     const files = zipEntries
-        .filter(entry =>
-            !entry.isDirectory &&
-            ALLOWED_EXTENSIONS.some(ext => entry.entryName.toLowerCase().endsWith(ext))
+        .filter(
+            (entry) =>
+                !entry.isDirectory &&
+                ALLOWED_EXTENSIONS.some((ext) =>
+                    entry.entryName.toLowerCase().endsWith(ext)
+                )
         )
-        .map(entry => ({
+        .map((entry) => ({
             name: entry.entryName,
-            content: entry.getData().toString('utf-8')
+            content: entry.getData().toString("utf-8"),
         }));
 
     if (files.length === 0) {
         throw new Error("ZIP file contains no allowed file types.");
     }
 
-    const hasJsp = files.some(file => file.name.toLowerCase().endsWith('.jsp'));
+    const hasJsp = files.some((file) => file.name.toLowerCase().endsWith(".jsp"));
     if (!hasJsp) {
-        throw new Error("The uploaded ZIP file does not contain any JSP files. Please upload a valid JSP-based project.");
+        throw new Error(
+            "The uploaded ZIP file does not contain any JSP files. Please upload a valid JSP-based project."
+        );
     }
 
-    let combinedContent = '';
-    for (const file of files) {
-        combinedContent += `File: ${file.name}\n${file.content}\n\n`;
-    }
+    if (zipType === "true") {
+        const parentDir = path.resolve(process.cwd(), "..");
+        const zipFolderName = path.basename(zipOriginalName, path.extname(zipOriginalName));
+        const uploadDir = path.join(parentDir, "UploadedProject", zipFolderName);
 
-    const prompt = `${ANALYSIS_PROMPT}:\n\n${combinedContent}`;
-    return await sendToAI(prompt);
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        for (const file of files) {
+            // Preserve exact ZIP structure
+            const filePath = path.join(uploadDir, file.name);
+            const dirPath = path.dirname(filePath);
+
+            if (!fs.existsSync(dirPath)) {
+                fs.mkdirSync(dirPath, { recursive: true });
+            }
+
+            fs.writeFileSync(filePath, file.content);
+        }
+
+        await User.findByIdAndUpdate(userId, { projectPath: uploadDir }, { new: true });
+
+        let combinedContent = files.map(f => `File: ${f.name}\n${f.content}`).join("\n\n");
+        const prompt = `${ANALYSIS_PROMPT}:\n\n${combinedContent}`;
+        return await sendToAI(prompt);
+    }
+    else {
+        let combinedContent = [];
+        for (const file of files) {
+            const parts = file.name.split("/");
+            const relativePath = parts.slice(1).join("/");
+            combinedContent.push({ name: relativePath, content: file.content });
+        }
+
+        return combinedContent;
+    }
 }
 
 /**

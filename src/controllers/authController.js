@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import BlacklistedToken from '../models/BlacklistedToken.js';
 import { registerSchema, loginSchema } from '../validation/validation.js';
 
 /**
@@ -55,14 +56,12 @@ export const login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-        // Generate tokens
         const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
-        // Set cookies (HTTP-only, Secure)
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
             sameSite: "Lax",
-            maxAge: 24 * 60 * 60 * 1000, // 1 day in milliseconds
+            maxAge: 24 * 60 * 60 * 1000,
         });
 
         res.json({ message: "User logged in successfully." });
@@ -71,24 +70,27 @@ export const login = async (req, res) => {
     }
 };
 
-
 /**
  * @function logout
- * @description Logs out the user by clearing the authentication cookie.
- * - Removes the `accessToken` cookie from the client.
- * - Uses HTTP-only, Secure, and SameSite flags for security.
- * - Returns a success message if the operation completes.
+ * @description Logs out the user by:
+ * - Checking if an access token exists in cookies.
+ * - If present, decodes the token and stores it in a blacklist with its expiry time.
+ * - Clears the `accessToken` cookie from the client using secure flags.
+ * - Responds with a success message upon successful logout.
  * - Handles and returns any server-side errors.
  */
 export const logout = async (req, res) => {
     try {
-        // Clear the access token cookie
-        res.clearCookie("accessToken", {
-            httpOnly: true,
-            sameSite: "Lax",
-        });
-
-        return res.json({ message: "User logged out successfully" });
+        const token = req.cookies.accessToken;
+        if (token) {
+            const decoded = jwt.decode(token);
+            await BlacklistedToken.create({
+                token,
+                expiresAt: new Date(decoded.exp * 1000)
+            });
+        }
+        res.clearCookie("accessToken", { httpOnly: true, sameSite: "Lax" });
+        return res.json({ message: "Logged out successfully" });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
