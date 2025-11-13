@@ -23,7 +23,7 @@ export async function analyzeProject(req, res) {
         // Step 1: ZIP uploaded 
         if (req.file) {
             const buffer = fs.readFileSync(zipPath);
-            report = await analyzeZipFile(buffer);
+            report = await analyzeZipFile(buffer,req.body.filterZip);
             return res.status(200).json({ report });
         }
 
