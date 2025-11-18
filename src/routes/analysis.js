@@ -19,10 +19,10 @@ const upload = multer({
 });
 
 // Analyse Routes
-router.post('/analyze-project', verifyToken, upload.single('folder'), analyzeProject);
+router.post('/analyze-project',  upload.single('folder'), analyzeProject);
 
 // Migration Routes
-router.post('/migration-project', verifyToken, handleCachedZipAnalysis);
+router.post('/migration-project',  handleCachedZipAnalysis);
 
 // User Authentication Flow
 router.post('/auth/register', register);

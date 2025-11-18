@@ -432,7 +432,6 @@ Your task is to generate a clean, production-ready React (web) codebase using th
    - JSON must pass strict JSON.parse() validation with a clean result.
    - If internal validation fails, automatically escape offending characters and retry before output.
  
- 
 ---
 ---
  
