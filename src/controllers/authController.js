@@ -89,7 +89,12 @@ export const logout = async (req, res) => {
                 expiresAt: new Date(decoded.exp * 1000)
             });
         }
-        res.clearCookie("accessToken", { httpOnly: true, sameSite: "Lax" });
+        res.clearCookie("accessToken", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "Lax",
+            path: "/"
+        });
         return res.json({ message: "Logged out successfully" });
     } catch (error) {
         return res.status(500).json({ error: error.message });

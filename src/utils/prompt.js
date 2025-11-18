@@ -412,7 +412,6 @@ Your task is to generate a clean, production-ready React (web) codebase using th
  
 ---
  
- 
 6. Output Format:
    - Return only valid, JSON-parseable output using this exact structure:
      [
@@ -432,10 +431,8 @@ Your task is to generate a clean, production-ready React (web) codebase using th
    - JSON must pass strict JSON.parse() validation with a clean result.
    - If internal validation fails, automatically escape offending characters and retry before output.
  
- 
 ---
 ---
- 
  
 7. legecy.txt Analysis and Documentation:
    - create a file name legecy.txt that clearly documents the full migration and analysis.
