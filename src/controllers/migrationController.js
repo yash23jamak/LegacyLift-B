@@ -1,6 +1,7 @@
 import { analyzeMigrationZip } from "../services/migrationService.js";
 import path from 'path';
 import fs from 'fs';
+import { StatusCodes } from 'http-status-codes';
 
 const zipPath = path.join(process.cwd(), 'uploads', 'cached.zip');
 
@@ -14,13 +15,23 @@ const zipPath = path.join(process.cwd(), 'uploads', 'cached.zip');
 export async function handleCachedZipAnalysis(req, res) {
     try {
         if (!fs.existsSync(zipPath)) {
-            return res.status(400).json({ error: "No ZIP file has been uploaded yet." });
+            return res.status(StatusCodes.BAD_REQUEST).json({
+                StatusCodes: StatusCodes.BAD_REQUEST,
+                error: "No ZIP file has been uploaded yet."
+            });
         }
 
         const buffer = fs.readFileSync(zipPath);
         const files = await analyzeMigrationZip(buffer);
-        return res.status(200).json(files);
+        return res.status(StatusCodes.OK).json({
+            status: StatusCodes.OK,
+            message: 'Migration analysis completed successfully',
+            files
+        });
     } catch (error) {
-        return res.status(500).json({ error: "Internal server error", details: error.message });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+            error: error.message
+        });
     }
 }

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import BlacklistedToken from '../models/BlacklistedToken.js';
 import { registerSchema, loginSchema } from '../validation/validation.js';
+import { StatusCodes } from 'http-status-codes';
 
 /**
  * @function register
@@ -27,9 +28,16 @@ export const register = async (req, res) => {
         const user = new User({ username, email, password: hashedPassword });
 
         await user.save();
-        res.status(201).json({ message: 'User registered successfully' });
+        res.status(StatusCodes.CREATED).json({
+            status: StatusCodes.CREATED,
+            message: 'User registered successfully'
+        });
+
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+            error: error.message
+        });
     }
 };
 
@@ -64,9 +72,15 @@ export const login = async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000,
         });
 
-        res.json({ message: "User logged in successfully." });
+        res.status(StatusCodes.OK).json({
+            status: StatusCodes.OK,
+            message: 'User logged in successfully'
+        });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+            error: error.message
+        });
     }
 };
 
@@ -95,8 +109,14 @@ export const logout = async (req, res) => {
             sameSite: "Lax",
             path: "/"
         });
-        return res.json({ message: "Logged out successfully" });
+        res.status(StatusCodes.OK).json({
+            status: StatusCodes.OK,
+            message: 'User logged out successfully'
+        });
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({
+            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+            error: error.message
+        });
     }
 };
