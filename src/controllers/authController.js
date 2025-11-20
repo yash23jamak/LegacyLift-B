@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import BlacklistedToken from '../models/BlacklistedToken.js';
 import { registerSchema, loginSchema } from '../validation/validation.js';
 
 /**
@@ -34,12 +35,13 @@ export const register = async (req, res) => {
 
 /**
  * @function login
- * @description Authenticates a user.
+ * @description Authenticates a user and sets a JWT token in a cookie.
  * - Validates input using Joi.
  * - Finds user by email.
  * - Compares password using bcrypt.
  * - Generates JWT token if credentials are valid.
- * - Returns token or error response.
+ * - Sets the token in a cookie for stateless authentication.
+ * - Returns success or error response.
  */
 export const login = async (req, res) => {
     try {
@@ -47,14 +49,22 @@ export const login = async (req, res) => {
         if (error) return res.status(400).json({ error: error.details[0].message });
 
         const { email, password } = req.body;
+
         const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) return res.status(404).json({ message: "User not found" });
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+        if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token });
+        const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+
+        res.cookie("accessToken", accessToken, {
+            httpOnly: true,
+            sameSite: "Lax",
+            maxAge: 24 * 60 * 60 * 1000,
+        });
+
+        res.json({ message: "User logged in successfully." });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -62,23 +72,31 @@ export const login = async (req, res) => {
 
 /**
  * @function logout
- * @description Logs out the user and deletes their account.
- * - Verifies JWT token from Authorization header.
- * - Extracts user ID from token.
- * - Deletes the user from the database.
- * - Returns success or error response.
+ * @description Logs out the user by:
+ * - Checking if an access token exists in cookies.
+ * - If present, decodes the token and stores it in a blacklist with its expiry time.
+ * - Clears the `accessToken` cookie from the client using secure flags.
+ * - Responds with a success message upon successful logout.
+ * - Handles and returns any server-side errors.
  */
 export const logout = async (req, res) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
-        if (!token) return res.status(401).json({ message: 'No token provided' });
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.id;
-
-        await User.findByIdAndDelete(userId);
-        res.json({ message: 'User logged out successfully' });
+        const token = req.cookies.accessToken;
+        if (token) {
+            const decoded = jwt.decode(token);
+            await BlacklistedToken.create({
+                token,
+                expiresAt: new Date(decoded.exp * 1000)
+            });
+        }
+        res.clearCookie("accessToken", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "Lax",
+            path: "/"
+        });
+        return res.json({ message: "Logged out successfully" });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message });
     }
 };

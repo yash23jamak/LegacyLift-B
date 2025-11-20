@@ -20,10 +20,15 @@ export async function analyzeProject(req, res) {
     try {
         let report;
 
-        // Step 1: ZIP uploaded 
+        // ✅ Step 1: ZIP uploaded
         if (req.file) {
+            const zipPath = req.file.path;
             const buffer = fs.readFileSync(zipPath);
-            report = await analyzeZipFile(buffer,req.body.filterZip);
+
+            const zipOriginalName = req.file.originalname;
+
+            const report = await analyzeZipFile(buffer, req.body.filterZip, req.user._id, zipOriginalName);
+
             return res.status(200).json({ report });
         }
 
@@ -52,11 +57,7 @@ export async function analyzeProject(req, res) {
 
         return res.status(400).json({ error: "Please provide a ZIP file, repository URL, or useCachedZip flag." });
     } catch (error) {
-        const isClientError = error.message.includes('ZIP') || error.message.includes('file');
-        res.status(isClientError ? 400 : 500).json({
-            error: isClientError
-                ? error.message
-                : 'An unexpected error occurred. Please try again later.'
-        });
+        console.error("Error in analyzeProject:", error.stack || error);
+        res.status(500).json({ error: error.message });
     }
 }

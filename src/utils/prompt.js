@@ -2,7 +2,7 @@ import simpleGit from "simple-git";
 import tmp from "tmp";
 import fs from "fs-extra";
 import path from "path";
-import AdmZip from 'adm-zip';
+import AdmZip from "adm-zip";
 
 export const ANALYSIS_PROMPT = `Analyzing a legacy JSP project. Your goal is to perform a comprehensive review of the provided frontend project files and return a detailed, structured JSON object containing the analysis results and a roadmap for migrating the project to ReactJS
 IMPORTANT INSTRUCTIONS:
@@ -314,161 +314,207 @@ Final Output:
 - Do not include explanations outside of JSON. Only return the JSON objects.
 `;
 
-
-
 // Migration prompt
+//  latest migration prompt 20-11-25
 export const MIGRATION_PROMPT = `
-Migrating a legacy JSP (Java Server Pages) application into a fully modern, client-side React project.
- 
-Your task is to generate a clean, production-ready React (web) codebase using the latest stable ecosystem tools, properly configured for build, testing, linting, styling, and routing without dependency conflicts.
- 
+You are converting a legacy JSP (Java Server Pages) web application into a fully client-side, modern React project. 
+Your output must generate a clean, production-ready Vite + TypeScript React codebase using officially supported, stable frontend libraries. 
+All configuration and source files must be syntactically valid, compilable, runnable, and properly formatted.
+
 ---
- 
-1. Tech Stack Configuration:
-   - Framework: React (latest stable version, minimum React 19+ or higher)
-   - Renderer: React DOM (web version only)
-   - Language: TypeScript
-   - Build Tool: Vite (latest)
-   - CSS Framework: Tailwind CSS (latest stable version ≥4)
-   - Routing: React Router DOM (latest)
-   - State Management: Redux Toolkit or React Query (choose best fit and justify)
-   - HTTP Client: Axios with interceptors (for auth, retries, errors)
-   - Unit Testing: Vitest + React Testing Library
-   - Linting: ESLint (React + TypeScript rules)
-   - Formatting: Prettier (integrated with ESLint)
-   - Icons: Heroicons
-   - Accessibility: Include ARIA roles and ensure semantic structure
-   - Environment Config: Use .env for API URLs and secrets
-   - **Do not include any React Native, Expo, or mobile-specific dependencies**
- 
+
+## 1. Tech Stack Requirements
+
+- Framework: React (latest stable, >=19)
+- Renderer: React DOM (web only)
+- Language: TypeScript
+- Build Tool: Vite (latest stable) with @vitejs/plugin-react
+- CSS: Tailwind CSS (latest stable >=4) integrated with PostCSS + Autoprefixer
+- Router: React Router DOM (latest)
+- State Management: Redux Toolkit (preferred for complex data and actions) or React Query (if server-state heavy, justify)
+- HTTP Client: Axios with request/response interceptors (auth, retry, error handler)
+- Unit Testing: Vitest + React Testing Library + jsdom
+- Linting: ESLint (flat config, React + TypeScript + hooks rules) + eslint-config-prettier
+- Formatter: Prettier integrated with ESLint
+- Icons: @heroicons/react
+- Authentication-aware: Use .env variables for API URLs or tokens
+- Accessibility: Use semantic HTML with ARIA roles and keyboard navigation support
+- Explicitly exclude any mobile/native dependencies or Expo modules.
+
 ---
- 
-2. Migration Goals:
-   - Convert each JSP file and feature into equivalent modular React components.
-   - Maintain business logic while improving clarity, modularity, and maintainability.
-   - Replace server-side rendering with dynamic client-rendered UI using hooks, context, or state.
-   - Include an example JSP page fully migrated into React with functional routing and API integration.
- 
+
+## 2. Migration Behavior and Goals
+
+- Convert every JSP page and its logic into modular, functional React components or pages.
+- Replace server-side templating logic with React hooks, Context, or Redux state.
+- Ensure component naming consistency with legacy features.
+- Provide one complete JSP-to-React migration example with routing and Axios data fetching.
+- Automatically remove unused or duplicated files.
+
 ---
- 
-3. Required Project Structure:
-   Must include the following complete files:
-   - package.json (accurate and conflict-free list of all required dependencies)
-   - vite.config.ts
-   - tsconfig.json
-   - postcss.config.js
-   - tailwind.config.js
-   - index.html (with favicon, meta tags, SEO basics, and root div)
-   - src/main.tsx
-   - src/App.tsx
-   - src/index.css (Tailwind entry)
-   - src/components/... (modular components such as Header, Footer)
-   - src/pages/... (migrated JSP pages)
-   - src/store/... or src/hooks/... (Redux / React Query setup)
-   - src/services/... (Axios API logic)
-   - src/assets/... (SVGs, icons)
-   - .env.example (template for environment variables)
-   - eslint.config.js and prettier.config.js
-   - vitest.config.ts (unit test configuration)
-   - README.md with setup and tech explanation
- 
+
+## 3. Output File and Project Structure
+
+The following files are mandatory and must be syntactically correct (no escaped newlines or invalid JSON):
+
+- package.json (valid dependencies, with "type": "module")
+- vite.config.ts (ESM format)
+- tsconfig.json (TypeScript compiler config)
+- postcss.config.cjs (CommonJS)
+- tailwind.config.cjs (CommonJS)
+- prettier.config.cjs (CommonJS)
+- eslint.config.js (Flat config ESM format, no deprecated flags)
+- vitest.config.ts (with jsdom setup)
+- .env.example
+- index.html (real HTML, not escaped)
+- src/vite-env.d.ts (declare modules and import.meta.env)
+- src/main.tsx
+- src/App.tsx
+- src/index.css (Tailwind base imports)
+- src/components/ (Header, Footer, Layout, etc.)
+- src/pages/ (migrated JSP pages)
+- src/store/ (Redux store setup with rootReducer)
+- src/services/ (Axios API logic with interceptors)
+- src/assets/ (images, SVGs)
+- README.md (markdown formatted setup instructions)
+- legecy.txt (migration documentation)
+
 ---
- 
-4. Tailwind Integration Rules:
-   - Configure via PostCSS and Tailwind config file.
-   - Import Tailwind utilities in src/index.css.
-   - Ensure Vite builds integrate Tailwind correctly.
-   - Verify Tailwind classes render expected styles with dev build.
- 
+
+## 4. Dependency and Version Integrity
+
+Automatically install and validate all dependencies with full version checks:
+
+- react
+- react-dom
+- @types/react
+- @types/react-dom
+- vite
+- @vitejs/plugin-react
+- typescript
+- @types/node (latest >=24.x to match Vite peer)
+- tailwindcss
+- postcss
+- autoprefixer
+- eslint
+- @typescript-eslint/parser
+- @typescript-eslint/eslint-plugin
+- eslint-plugin-react
+- eslint-plugin-react-hooks
+- eslint-config-prettier
+- prettier
+- vitest
+- jsdom
+- @testing-library/react
+- axios
+- react-router-dom
+- @reduxjs/toolkit (or @tanstack/react-query)
+- @heroicons/react
+
+Check:
+1. All peer dependencies are satisfied.
+2. No deprecated flags or unresolved plugins.
+3. The project compiles and runs using Node 18+.
+
+If any peer conflict or missing version occurs, automatically upgrade to compatible versions.
+
 ---
- 
-5. Package Integrity and Dependency Verification:
-   - Generate a complete and fully compatible package.json using only React web dependencies:
-     * react
-     * react-dom
-     * @types/react
-     * @types/react-dom
-     * vite (latest stable version)
-     * @vitejs/plugin-react (latest compatible with vite)
-     * typescript (latest stable version)
-     * @types/node (compatible with vite’s required range — must auto-detect and use >= the minimum peer constraint, e.g., ^24.x or higher)
-     * tailwindcss
-     * postcss
-     * autoprefixer
-     * eslint
-     * prettier
-     * vitest
-     * axios
-     * react-router-dom
-     * @reduxjs/toolkit or @tanstack/react-query
-     * heroicons/react
-   - Always synchronize versions of vite, @vitejs/plugin-react, typescript, and @types/node automatically.
-   - Do not add or include any libraries requiring outdated Node type definitions.
-   - Before outputting JSON, perform a simulated dependency compatibility check to confirm:
-     1. All peer dependencies are satisfied.
-     2. @types/node version supports Vite’s required range (>=24 if needed).
-     3. No warnings or errors occur on “npm install” with default flags.
-   - If a potential mismatch appears, automatically bump package versions to their latest patch or compatible major version to ensure resolution success.
- 
+
+## 5. Configuration Standards
+
+- Output **real ESM/CJS syntax** as required by each file:
+  - .ts and .js files must use ESM (export, import).
+  - .cjs files must use CommonJS (module.exports).
+- No escaped newlines (\\n) or quotes (\\") in final output—produce real files, not JSON strings.
+- HTML and TSX files must contain valid syntax (no escaped entities or HTML corruption).
+
 ---
- 
- 
-6. Output Format:
-   - Return only valid, JSON-parseable output using this exact structure:
-     [
-       { "name": "index.html", "content": "..." },
-       { "name": "vite.config.ts", "content": "..." },
-       { "name": "src/main.tsx", "content": "..." }
-     ]
-   - Every property name must be enclosed in double quotes.
-   - File "content" values must be valid JSON strings:
-     * Escape all double quotes (use \\").
-     * Escape all backslashes (use \\\\).
-     * Escape newlines (use \\n).
-     * No unescaped characters allowed in JSX, paths, or strings.
-     * Avoid raw template literals
-   - No trailing commas in arrays or objects.
-   - No comments or backticks allowed.
-   - JSON must pass strict JSON.parse() validation with a clean result.
-   - If internal validation fails, automatically escape offending characters and retry before output.
- 
+
+## 6. ESLint and Formatting Rules
+
+- Use ESLint flat configuration with imported ESM modules:
+  \`\`\`
+  import js from '@eslint/js';
+  import ts from 'typescript-eslint';
+  import react from 'eslint-plugin-react';
+  import hooks from 'eslint-plugin-react-hooks';
+  export default ts.config(
+    js.configs.recommended,
+    react.configs.recommended,
+    hooks.configs.recommended,
+    {
+      ignores: ['dist'],
+      rules: {
+        'react/react-in-jsx-scope': 'off'
+      },
+    }
+  );
+  \`\`\`
+
+- Include Prettier rules integration with no conflicting settings.
+
 ---
+
+## 7. Testing and Verification
+
+Before final output:
+1. Simulate npm install and build; ensure no ERESOLVE or peer conflicts.
+2. Run npm run dev and validate Vite successfully starts with Tailwind rendering.
+3. Run npm run test using Vitest and jsdom; ensure basic tests pass.
+4. Verify ESLint and Prettier check show no errors.
+5. Inspect all import paths for correctness and case sensitivity.
+6. No file should contain corrupt JSX, escaped sequences, or unused code.
+
+If any validation fails, automatically correct and retry.
+
 ---
- 
- 
-7. legecy.txt Analysis and Documentation:
-   - create a file name legecy.txt that clearly documents the full migration and analysis.
-   - The legecy.txt must include:
-     * Overview of the legacy JSP project (its purpose, architecture, and major modules).
-     * Table comparing JSP features or components with their new React equivalents.
-     * Explanation of how server-side logic was replaced with client-side rendering and React hooks.
-     * List of all major dependencies used in the new React setup with brief descriptions.
-     * Setup Instructions: how to install, run, and test the new project.
-     * Build and Deployment Notes (for Vite-based production build).
-     * File Structure Overview (summarized tree format).
-     * Notes on TypeScript usage, state management choice (Redux Toolkit or React Query), and why it was chosen.
-     * How Tailwind CSS, React Router, and Axios are configured and integrated.
-     * Accessibility and performance considerations compared to legacy JSP.
-   - The legecy.txt file must be part of the final JSON output array:
-     [
-       { "name": "legecy.txt", "content": "..." }
-     ]
-   - Ensure the README content is human-readable, uses Markdown formatting, and provides detailed project context.
-   - It must not contain any raw JSX, unescaped code blocks, or invalid JSON characters.
-   - Validate that it remains compatible with the JSON output rules (escaped newlines, quotes, and slashes).
- 
+
+## 8. legecy.txt Content Specification
+
+The file \`legecy.txt\` must include:
+- Overview of original JSP project (structure, modules, data flow).
+- Mapping of JSP features to React pages/components.
+- Explanation of migration of server rendering to client-side UI using hooks/state.
+- Dependency list with description.
+- Setup, build & deployment guide (Vite + Tailwind).
+- File structure tree.
+- TypeScript, Redux/React Query design notes.
+- Accessibility and performance improvements vs JSP.
+
+Ensure this file is text-based, valid UTF-8, no escaped characters.
+
 ---
- 
-8. Final Verification Rules:
-   - Internally validate npm dependency tree to confirm no ERESOLVE or peer conflicts.
-   - Verify that project builds successfully on Node.js 18+ using Vite’s dev server.
-   - Confirm React DOM is correctly imported and used.
-   - Confirm no native or mobile-related imports exist.
-   - Confirm Tailwind and routing function in preview rendering.
-   - Only produce the JSON output after passing all checks successfully.
- 
-If dependency validation fails during generation, re-resolve versions and retry until the setup is conflict-free.
- 
+
+## 9. Output Format
+
+Return a JSON array like:
+\`\`\`
+[
+  { "name": "index.html", "content": "<!DOCTYPE html>...actual file content..." },
+  { "name": "vite.config.ts", "content": "import { defineConfig } from 'vite'..." }
+]
+\`\`\`
+
+Each "content" field must represent actual code, not escaped strings. 
+All files must be valid as-is when written to disk.
+
+---
+
+## 10. Validation Recap
+
+Before returning, confirm:
+- App runs via \`vite dev\`
+- No broken imports or components
+- ESLint + Prettier clean
+- Tailwind working
+- Routing functional
+- Tests executable (jsdom present)
+- No escaped or malformed code remains
+- Correct ES/CJS syntax per file
+- Complete, accurate project ready for production
+
+Only produce output once all checks pass successfully.
+
 ---
 `;
 
@@ -502,9 +548,10 @@ export async function checkRepoForJsp(repoUrl) {
     await git.clone(repoUrl, repoPath);
 
     let containsJsp = false;
+    const collectedFiles = [];
 
-    const checkFiles = async (dir, depth = 0) => {
-      if (depth > MAX_DEPTH || containsJsp) return;
+    const checkFiles = async (dir, depth = 0, relativeDir = "") => {
+      if (depth > MAX_DEPTH) return;
 
       let files;
       try {
@@ -518,8 +565,6 @@ export async function checkRepoForJsp(repoUrl) {
       }
 
       for (const file of files) {
-        if (containsJsp) break;
-
         const fullPath = path.join(dir, file);
         let stat;
         try {
@@ -533,17 +578,30 @@ export async function checkRepoForJsp(repoUrl) {
         }
 
         if (stat.isDirectory()) {
-          await checkFiles(fullPath, depth + 1);
-        } else if (file.toLowerCase().endsWith(".jsp")) {
-          containsJsp = true;
-          break;
+          await checkFiles(fullPath, depth + 1, path.join(relativeDir, file));
+        } else {
+          const ext = path.extname(file).toLowerCase();
+          if (ALLOWED_EXTENSIONS.includes(ext)) {
+            if (ext === ".jsp") containsJsp = true;
+            const content = await fs.readFile(fullPath, "utf-8");
+            const fileName = path.join(relativeDir, file);
+            const parts = fileName.split("\\");
+            const relativePath = parts.slice(1).join("/");
+            collectedFiles.push({ name: relativePath, content });
+          }
         }
       }
     };
 
     await checkFiles(repoPath);
-    return containsJsp;
+
+    if (collectedFiles.length > 0) {
+      console.log(`Total files collected: ${collectedFiles.length}`);
+    }
+
+    return collectedFiles;
   } catch (err) {
+    console.error(`Error processing repository: ${err.message}`);
     return false;
   } finally {
     tmpDir.removeCallback(); // Always clean up
@@ -559,10 +617,8 @@ export function extractFilesFromZip(fileBuffer) {
   const zip = new AdmZip(fileBuffer);
   const zipEntries = zip.getEntries();
 
-  return zipEntries.map(entry => ({
+  return zipEntries.map((entry) => ({
     name: entry.entryName,
     content: entry.getData().toString("utf-8"),
   }));
 }
-
-

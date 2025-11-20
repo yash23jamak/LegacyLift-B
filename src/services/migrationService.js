@@ -1,12 +1,29 @@
-import axios from "axios";
 import { MIGRATION_PROMPT, extractFilesFromZip } from "../utils/prompt.js";
+import axios from "axios";
+import dotenv from 'dotenv';
+dotenv.config();
+
+const apiUrl = process.env.NODE_MIGRATION_API_URL;
+const apiKey = process.env.NODE_MIGRATION_API_KEY;
+const apiModel = process.env.NODE_MIGRATION_MODEL;
+
+if (!apiUrl || !apiKey || !apiModel) {
+    throw new Error('Missing required environment variables');
+}
+
 
 /**
- * Uses AI API to transform extracted ZIP files into React-compatible format.
- * Returns a list of files with name and content.
- * @param {Buffer} fileBuffer
- * @returns {Promise<Array<{name: string, content: string}>>}
+ * Analyzes a migration ZIP file by:
+ * 1. Extracting files from the ZIP.
+ * 2. Splitting files into chunks for processing.
+ * 3. Sending combined file content to an AI model for migration analysis.
+ * 4. Parsing and validating AI response (expects JSON format).
+ *
+ * @param {Buffer} fileBuffer - The ZIP file buffer to analyze.
+ * @returns {Promise<Array>} - Returns an array of migration analysis results.
+ * @throws {Error} - If ZIP contains no files or API call fails.
  */
+
 export async function analyzeMigrationZip(fileBuffer) {
   const extractedFiles = extractFilesFromZip(fileBuffer);
   if (extractedFiles.length === 0) {
@@ -17,10 +34,11 @@ export async function analyzeMigrationZip(fileBuffer) {
   const MAX_CONTENT_LENGTH = 10000;
   const allResults = [];
 
-  const chunks = [];
-  for (let i = 0; i < extractedFiles.length; i += CHUNK_SIZE) {
-    chunks.push(extractedFiles.slice(i, i + CHUNK_SIZE));
-  }
+    // Split files into chunks
+    const chunks = [];
+    for (let i = 0; i < extractedFiles.length; i += CHUNK_SIZE) {
+        chunks.push(extractedFiles.slice(i, i + CHUNK_SIZE));
+    }
 
   const apiUrl =
     process.env.NODE_MIGRATION_API_URL ||
