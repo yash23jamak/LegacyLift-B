@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import BlacklistedToken from '../models/BlacklistedToken.js';
+import { StatusCodes } from 'http-status-codes';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -16,15 +17,24 @@ dotenv.config();
 export const verifyToken = async (req, res, next) => {
     try {
         const token = req.cookies.accessToken;
-        if (!token) return res.status(401).json({ message: "Access denied" });
+        if (!token) return res.status(StatusCodes.UNAUTHORIZED).json({
+            StatusCodes: StatusCodes.UNAUTHORIZED,
+            error: "Unauthorized"
+        });
 
         const blacklisted = await BlacklistedToken.findOne({ token });
-        if (blacklisted) return res.status(401).json({ message: "Token invalid (logged out)" });
+        if (blacklisted) return res.status(StatusCodes.UNAUTHORIZED).json({
+            StatusCodes: StatusCodes.UNAUTHORIZED,
+            error: "Token Invalid or Logged Out"
+        });
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = await User.findById(decoded.id);
         next();
     } catch (error) {
-        return res.status(401).json({ message: "Invalid or expired token" });
+        res.status(StatusCodes.UNAUTHORIZED).json({
+            StatusCodes: StatusCodes.UNAUTHORIZED,
+            error: "Invalid or expired token"
+        });
     }
 };

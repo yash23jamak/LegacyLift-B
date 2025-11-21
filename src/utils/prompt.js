@@ -301,6 +301,7 @@ Notes:
 ]
 
 Notes:
+- only 4 items should be included in the summary.
 - "icon" should be a simple keyword (e.g., Gauge, Box, Shield, Layers, etc.).
 - "stat" should be an approximate percentage improvement.
 - "title" should highlight the benefit.

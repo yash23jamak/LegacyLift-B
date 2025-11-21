@@ -83,7 +83,6 @@ export async function analyzeMigrationZip(fileBuffer) {
         }
       );
 
-      console.log("response.data:", response.data);
 
       let rawText = response.data.choices?.[0]?.message?.content || "";
       rawText = rawText
@@ -119,17 +118,25 @@ export async function analyzeMigrationZip(fileBuffer) {
           });
         }
       }
-    } catch (error) {
-      const status = error?.response?.status;
-      allResults.push({
-        error: "AI API request failed or returned invalid response.",
-        rawResponse:
-          error?.response?.data || error.message || "No response from AI",
-        suggestion:
-          status === 404
-            ? "Invalid API URL or model. Verify NODE_MIGRATION_API_URL and NODE_MIGRATION_MODEL."
-            : "Please check the API key and prompt correctness.",
-      });
+    } catch (err) {
+        let errorMessage = "Failed to connect to AI service.";
+        let details = err.message;
+
+        if (err.response) {
+            const status = err.response.status;
+            if (status === 401) errorMessage = "Unauthorized: Invalid API key.";
+            else if (status === 429) errorMessage = "Rate limit reached. Please try again later.";
+            else if (status >= 500) errorMessage = "AI service is currently unavailable.";
+            details = `Status Code: ${status}, ${err.message}`;
+        } else if (err.code === 'ENOTFOUND') {
+            errorMessage = "Network error: Unable to reach AI service.";
+        }
+
+        return {
+            success: false,
+            error: errorMessage,
+            details
+        };
     }
   }
 
