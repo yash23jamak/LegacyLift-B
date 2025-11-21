@@ -6,9 +6,9 @@ import {
 } from '../services/analysisService.js';
 import fs from 'fs';
 import path from 'path';
+import { StatusCodes } from 'http-status-codes';
 
 const zipPath = path.join(process.cwd(), 'uploads', 'cached.zip');
-
 
 /**
  * Analyzes a project based on different input types:
@@ -20,11 +20,30 @@ export async function analyzeProject(req, res) {
     try {
         let report;
 
-        // Step 1: ZIP uploaded 
+        // ✅ Step 1: ZIP uploaded
         if (req.file) {
+            const zipPath = req.file.path;
             const buffer = fs.readFileSync(zipPath);
-            report = await analyzeZipFile(buffer);
-            return res.status(200).json({ report });
+
+            const zipOriginalName = req.file.originalname;
+
+            const report = await analyzeZipFile(buffer, req.body.filterZip, req.user._id, zipOriginalName);
+
+
+            // Handle AI failure
+            if (report && report.error) {
+                return res.status(StatusCodes.BAD_GATEWAY).json({
+                    status: StatusCodes.BAD_GATEWAY,
+                    message: 'AI service failed during ZIP analysis',
+                    error: report.error,
+                });
+            }
+
+            return res.status(StatusCodes.OK).json({
+                status: StatusCodes.OK,
+                message: 'ZIP file analyzed successfully',
+                report
+            });
         }
 
         // Step 2: Analyze repo URL
@@ -37,7 +56,21 @@ export async function analyzeProject(req, res) {
             }
 
             report = await analyzeRepo(repoUrl);
-            return res.status(200).json({ report });
+
+            // Handle AI failure
+            if (report && report.error) {
+                return res.status(StatusCodes.BAD_GATEWAY).json({
+                    status: StatusCodes.BAD_GATEWAY,
+                    message: 'AI service failed during repository analysis',
+                    error: report.error,
+                });
+            }
+
+            return res.status(StatusCodes.OK).json({
+                status: StatusCodes.OK,
+                message: 'Repository analyzed successfully',
+                report
+            });
         }
 
         // Step 3: Generate Migration Report
@@ -47,16 +80,36 @@ export async function analyzeProject(req, res) {
             }
             const buffer = fs.readFileSync(zipPath);
             const result = await generateMigrationReport(buffer);
-            return res.status(result.error ? 400 : 200).json(result);
+
+
+            // Hanlde AI failure
+            const failedChunk = result.report.find(r => r.success === false || r.error);
+
+            if (failedChunk) {
+                return res.status(StatusCodes.BAD_GATEWAY).json({
+                    status: StatusCodes.BAD_GATEWAY,
+                    message: 'AI service failed during migration report generation',
+                    error: failedChunk.error,
+                    details: failedChunk.details || null
+                });
+            }
+
+
+            return res.status(StatusCodes.OK).json({
+                status: StatusCodes.OK,
+                message: 'Migration report generated successfully',
+                report: result
+            });
         }
 
-        return res.status(400).json({ error: "Please provide a ZIP file, repository URL, or useCachedZip flag." });
+        return res.status(StatusCodes.BAD_REQUEST).json({
+            StatusCodes: StatusCodes.BAD_REQUEST,
+            error: "Please provide a ZIP file, repository URL, or generateMigrationReport flag."
+        });
     } catch (error) {
-        const isClientError = error.message.includes('ZIP') || error.message.includes('file');
-        res.status(isClientError ? 400 : 500).json({
-            error: isClientError
-                ? error.message
-                : 'An unexpected error occurred. Please try again later.'
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+            error: error.message
         });
     }
 }

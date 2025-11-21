@@ -1,25 +1,40 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+import BlacklistedToken from '../models/BlacklistedToken.js';
+import { StatusCodes } from 'http-status-codes';
+import dotenv from 'dotenv';
+dotenv.config();
 
 /**
  * @function verifyToken
- * @description Middleware to verify JWT token from the Authorization header.
- * - Extracts token from the header.
- * - Verifies the token using JWT_SECRET.
- * - Attaches decoded user info to the request object.
- * - Calls next() if token is valid.
- * - Returns 401 if token is missing.
- * - Returns 403 if token is invalid or expired.
+ * @description Middleware to:
+ * - Check for JWT in cookies and validate it.
+ * - Ensure token is not blacklisted.
+ * - Attach the authenticated user to `req.user` and proceed.
+ * - Return 401 if token is missing, invalid, or expired.
  */
-export const verifyToken = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'Access denied. No token provided.' });
-    }
+
+export const verifyToken = async (req, res, next) => {
     try {
+        const token = req.cookies.accessToken;
+        if (!token) return res.status(StatusCodes.UNAUTHORIZED).json({
+            StatusCodes: StatusCodes.UNAUTHORIZED,
+            error: "Unauthorized"
+        });
+
+        const blacklisted = await BlacklistedToken.findOne({ token });
+        if (blacklisted) return res.status(StatusCodes.UNAUTHORIZED).json({
+            StatusCodes: StatusCodes.UNAUTHORIZED,
+            error: "Token Invalid or Logged Out"
+        });
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+        req.user = await User.findById(decoded.id);
         next();
     } catch (error) {
-        return res.status(403).json({ message: 'Forbidden. Invalid or expired token.' });
+        res.status(StatusCodes.UNAUTHORIZED).json({
+            StatusCodes: StatusCodes.UNAUTHORIZED,
+            error: "Invalid or expired token"
+        });
     }
 };
