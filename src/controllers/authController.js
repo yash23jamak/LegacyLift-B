@@ -1,9 +1,9 @@
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import BlacklistedToken from '../models/BlacklistedToken.js';
-import { registerSchema, loginSchema } from '../validation/validation.js';
-import { StatusCodes } from 'http-status-codes';
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
+import BlacklistedToken from "../models/BlacklistedToken.js";
+import { registerSchema, loginSchema } from "../validation/validation.js";
+import { StatusCodes } from "http-status-codes";
 
 /**
  * @function register
@@ -15,30 +15,30 @@ import { StatusCodes } from 'http-status-codes';
  * - Returns a success message or error response.
  */
 export const register = async (req, res) => {
-    try {
-        const { error } = registerSchema.validate(req.body);
-        if (error) return res.status(400).json({ error: error.details[0].message });
+  try {
+    const { error } = registerSchema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
-        const { username, email, password } = req.body;
+    const { username, email, password } = req.body;
 
-        const existingUser = await User.findOne({ email });
-        if (existingUser) return res.status(409).json({ message: 'Email already registered' });
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(409).json({ message: "Email already registered" });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const user = new User({ username, email, password: hashedPassword });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ username, email, password: hashedPassword });
 
-        await user.save();
-        res.status(StatusCodes.CREATED).json({
-            status: StatusCodes.CREATED,
-            message: 'User registered successfully'
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
-            error: error.message
-        });
-    }
+    await user.save();
+    res.status(StatusCodes.CREATED).json({
+      status: StatusCodes.CREATED,
+      message: "User registered successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+      error: error.message,
+    });
+  }
 };
 
 /**
@@ -52,37 +52,40 @@ export const register = async (req, res) => {
  * - Returns success or error response.
  */
 export const login = async (req, res) => {
-    try {
-        const { error } = loginSchema.validate(req.body);
-        if (error) return res.status(400).json({ error: error.details[0].message });
+  try {
+    const { error } = loginSchema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
-        const { email, password } = req.body;
+    const { email, password } = req.body;
 
-        const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
 
-        const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
-        res.cookie("accessToken", accessToken, {
-            httpOnly: true,
-            sameSite: "Lax",
-            maxAge: 24 * 60 * 60 * 1000,
-        });
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      sameSite: "Lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
 
-        res.status(StatusCodes.OK).json({
-            username:user?.username,
-            status: StatusCodes.OK,
-            message: 'User logged in successfully'
-        });
-    } catch (error) {
-        res.status(500).json({
-            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
-            error: error.message
-        });
-    }
+    res.status(StatusCodes.OK).json({
+      username: user?.username,
+      status: StatusCodes.OK,
+      message: "User logged in successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+      error: error.message,
+    });
+  }
 };
 
 /**
@@ -95,29 +98,29 @@ export const login = async (req, res) => {
  * - Handles and returns any server-side errors.
  */
 export const logout = async (req, res) => {
-    try {
-        const token = req.cookies.accessToken;
-        if (token) {
-            const decoded = jwt.decode(token);
-            await BlacklistedToken.create({
-                token,
-                expiresAt: new Date(decoded.exp * 1000)
-            });
-        }
-        res.clearCookie("accessToken", {
-            httpOnly: true,
-            secure: true,
-            sameSite: "Lax",
-            path: "/"
-        });
-        res.status(StatusCodes.OK).json({
-            status: StatusCodes.OK,
-            message: 'User logged out successfully'
-        });
-    } catch (error) {
-        res.status(500).json({
-            StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
-            error: error.message
-        });
+  try {
+    const token = req.cookies.accessToken;
+    if (token) {
+      const decoded = jwt.decode(token);
+      await BlacklistedToken.create({
+        token,
+        expiresAt: new Date(decoded.exp * 1000),
+      });
     }
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+      path: "/",
+    });
+    res.status(StatusCodes.OK).json({
+      status: StatusCodes.OK,
+      message: "User logged out successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      StatusCodes: StatusCodes.INTERNAL_SERVER_ERROR,
+      error: error.message,
+    });
+  }
 };
