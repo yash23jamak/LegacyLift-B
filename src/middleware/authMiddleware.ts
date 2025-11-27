@@ -1,7 +1,7 @@
 
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import User from '../models/User';
-import BlacklistedToken from '../models/BlacklistedToken';
+import User from '../models/User.js';
+import BlacklistedToken from '../models/BlacklistedToken.js';
 import { StatusCodes } from 'http-status-codes';
 import dotenv from 'dotenv';
 import { Request, Response, NextFunction } from 'express';

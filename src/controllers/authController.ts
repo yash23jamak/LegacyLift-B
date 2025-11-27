@@ -2,10 +2,10 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import User from '../models/User';
-import BlacklistedToken from '../models/BlacklistedToken';
-import { IUser } from '../utils/interfaces'
-import { registerSchema, loginSchema } from '../utils/validation';
+import User from '../models/User.js';
+import BlacklistedToken from '../models/BlacklistedToken.js';
+import { IUser } from '../utils/interfaces.js'
+import { registerSchema, loginSchema } from '../utils/validation.js';
 import dotenv from 'dotenv';
 dotenv.config();
 

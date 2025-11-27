@@ -1,5 +1,5 @@
 import mongoose, { Schema, Model } from 'mongoose';
-import { IUser } from '../utils/interfaces';
+import { IUser } from '../utils/interfaces.js';
 
 const userSchema: Schema<IUser> = new Schema<IUser>({
     username: { type: String, required: true, unique: true },

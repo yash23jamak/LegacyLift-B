@@ -1,6 +1,6 @@
 import Joi, { ObjectSchema } from 'joi';
-import { LoginRequest, RegisterRequest } from './interfaces';
-import { PASSWORD_REGEX } from './commonContants';
+import { LoginRequest, RegisterRequest } from './interfaces.js';
+import { PASSWORD_REGEX } from './commonContants.js';
 
 // Register schema
 export const registerSchema: ObjectSchema<RegisterRequest> = Joi.object<RegisterRequest>({

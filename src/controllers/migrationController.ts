@@ -1,5 +1,5 @@
 
-import { analyzeMigrationZip } from "../services/migrationService";
+import { analyzeMigrationZip } from "../services/migrationService.js";
 import path from "path";
 import fs from "fs";
 import { StatusCodes } from "http-status-codes";
@@ -30,12 +30,32 @@ export async function handleCachedZipAnalysis(
         const buffer: Buffer = fs.readFileSync(zipPath);
         const files = await analyzeMigrationZip(buffer);
 
-        // Handle AI failure
-        if (files && "error" in files) {
+
+        // Validate AI response
+        if (!files || typeof files !== "object") {
+            return res.status(StatusCodes.BAD_GATEWAY).json({
+                status: StatusCodes.BAD_GATEWAY,
+                message: "AI service returned invalid response",
+                error: "Malformed or empty data received from AI",
+            });
+        }
+
+        // Handle explicit AI error
+        if ("error" in files) {
             return res.status(StatusCodes.BAD_GATEWAY).json({
                 status: StatusCodes.BAD_GATEWAY,
                 message: "AI service failed during migration analysis",
                 error: (files as { error: string }).error,
+                raw: (files as any).raw || null,
+            });
+        }
+
+        // Check for broken or empty list
+        if (Array.isArray(files) && files.length === 0) {
+            return res.status(StatusCodes.BAD_GATEWAY).json({
+                status: StatusCodes.BAD_GATEWAY,
+                message: "AI service returned empty analysis result",
+                error: "No valid migration data found",
             });
         }
 

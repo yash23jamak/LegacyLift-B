@@ -1,9 +1,9 @@
 import express from 'express';
 import multer from 'multer';
-import { analyzeProject } from '../controllers/analysisController';
-import { handleCachedZipAnalysis } from '../controllers/migrationController';
-import { register, login, logout } from '../controllers/authController';
-import { verifyToken } from '../middleware/authMiddleware';
+import { analyzeProject } from '../controllers/analysisController.js';
+import { handleCachedZipAnalysis } from '../controllers/migrationController.js';
+import { register, login, logout } from '../controllers/authController.js';
+import { verifyToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

@@ -4,15 +4,14 @@ import AdmZip from "adm-zip";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
-import User from "../models/User";
+import User from "../models/User.js";
 import {
   ANALYSIS_PROMPT,
-  REPO_ANALYSIS_PROMPT,
   MIGRATION_REPORT_PROMPT,
-} from "../utils/prompt";
-import { ALLOWED_EXTENSIONS, checkRepoForJsp, extractFilesFromZip } from "../utils/commonContants";
-import { CollectedFile, AnalyzeZipResult, MigrationReport } from "../utils/interfaces.js";
-import { CODE_BLOCK_JSON_REGEX, MULTIPLE_JSON_ARRAY_SPLIT_REGEX } from "../utils/commonContants";
+} from "../utils/prompt.js";
+import { ALLOWED_EXTENSIONS, checkRepoForJsp, extractFilesFromZip } from "../utils/commonContants.js";
+import { CollectedFile, MigrationReport } from "../utils/interfaces.js";
+import { CODE_BLOCK_JSON_REGEX, MULTIPLE_JSON_ARRAY_SPLIT_REGEX } from "../utils/commonContants.js";
 
 dotenv.config();
 

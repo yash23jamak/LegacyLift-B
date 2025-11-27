@@ -3,7 +3,7 @@ import {
     analyzeZipFile,
     analyzeRepo,
     generateMigrationReport
-} from '../services/analysisService';
+} from '../services/analysisService.js';
 import fs from 'fs';
 import path from 'path';
 import { StatusCodes } from 'http-status-codes';
@@ -57,7 +57,6 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
             });
         }
 
-
         // ✅ Step 2: Analyze repo URL
         if (req.body.repoUrl) {
             const repoUrl = req.body.repoUrl as string;
@@ -70,12 +69,12 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
             report = await analyzeRepo(repoUrl);
 
             // Handle AI failure
-            if (report && report.report && report.report.some((r: any) => r.error)) {
+            if (report && report && report.some((r: any) => r.error)) {
                 return res.status(StatusCodes.BAD_GATEWAY).json({
                     status: StatusCodes.BAD_GATEWAY,
                     message: 'AI service failed during ZIP analysis',
-                    error: report.report.find((r: any) => r.error)?.error || 'Unknown AI error',
-                    raw: report.report.find((r: any) => r.error)?.raw || null
+                    error: report.find((r: any) => r.error)?.error || 'Unknown AI error',
+                    raw: report.find((r: any) => r.error)?.raw || null
                 });
             }
 
@@ -85,7 +84,6 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
                 report
             });
         }
-
 
         // ✅ Step 3: Generate Migration Report
         if (req.body.generateMigrationReport === true) {
@@ -99,8 +97,8 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
             const buffer = fs.readFileSync(zipPath);
             const result = await generateMigrationReport(buffer);
 
-            // ✅ Check if result.report exists and is an array
-            if (!result || !Array.isArray(result.report)) {
+            // ✅ Check if result exists and has a valid structure
+            if (!result || !result.report || !Array.isArray(result.report)) {
                 return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
                     status: StatusCodes.INTERNAL_SERVER_ERROR,
                     message: "Invalid response from AI service",
@@ -108,21 +106,26 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
                 });
             }
 
-            // ✅ Collect all failed chunks
-            const failedChunks = result.report.filter((r: any) => r.success === false || r.error);
+            // Check for embedded errors in the response
+            const hasTopLevelError = result.error || result.message?.includes("Failed");
+            const failedChunks = result.report.filter((r: any) => r.error || r.success === false);
 
-            if (failedChunks.length > 0) {
+            if (hasTopLevelError || failedChunks.length > 0) {
                 return res.status(StatusCodes.BAD_GATEWAY).json({
                     status: StatusCodes.BAD_GATEWAY,
                     message: 'AI service failed during migration report generation',
-                    errors: failedChunks.map(chunk => ({
-                        error: chunk.error || 'Unknown AI error',
-                        details: chunk.details || null,
-                        raw: chunk.raw || null
-                    }))
+                    errors: [
+                        ...(hasTopLevelError ? [{ error: result.error || 'Unknown AI error', raw: result }] : []),
+                        ...failedChunks.map(chunk => ({
+                            error: chunk.error || 'Unknown AI error',
+                            details: chunk.details || null,
+                            raw: chunk.raw || null
+                        }))
+                    ]
                 });
             }
 
+            // If everything is fine, return success
             return res.status(StatusCodes.OK).json({
                 status: StatusCodes.OK,
                 message: 'Migration report generated successfully',

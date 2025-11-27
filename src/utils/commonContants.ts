@@ -2,9 +2,9 @@
 import tmp, { DirResult } from "tmp";
 import fs from "fs-extra";
 import path from "path";
-import simpleGit, { SimpleGit } from "simple-git"
+import * as simpleGit from "simple-git";
 import AdmZip from "adm-zip";
-import { CollectedFile } from "./interfaces"
+import { CollectedFile } from "./interfaces.js"
 
 export const ALLOWED_EXTENSIONS = [
     ".jsp",
@@ -30,7 +30,8 @@ const MAX_DEPTH = 10;
 export async function checkRepoForJsp(repoUrl: string): Promise<CollectedFile[] | false> {
     const tmpDir: DirResult = tmp.dirSync({ unsafeCleanup: true });
     const repoPath: string = tmpDir.name;
-    const git: SimpleGit = simpleGit();
+    const git: simpleGit.SimpleGit = simpleGit.simpleGit(); 
+    console.log(git,"git")
 
     try {
         await git.clone(repoUrl, repoPath);

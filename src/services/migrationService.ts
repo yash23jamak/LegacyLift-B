@@ -1,9 +1,9 @@
 
-import { MIGRATION_PROMPT } from "../utils/prompt";
-import { extractFilesFromZip } from "../utils/commonContants";
+import { MIGRATION_PROMPT } from "../utils/prompt.js";
+import { extractFilesFromZip } from "../utils/commonContants.js";
 import axios, { AxiosResponse } from "axios";
 import dotenv from "dotenv";
-import { ApiError, ExtractedFile, MigrationResult } from "../utils/interfaces";
+import { ApiError, ExtractedFile, MigrationResult } from "../utils/interfaces.js";
 dotenv.config();
 
 const apiUrl: string | undefined = process.env.NODE_MIGRATION_API_URL;

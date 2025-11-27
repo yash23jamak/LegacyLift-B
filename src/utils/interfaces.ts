@@ -36,6 +36,8 @@ export interface AnalyzeZipResult {
 }
 export interface MigrationReport {
     report: any[];
+    error?: string;
+    message?: string;
 }
 
 export interface ExtractedFile {
