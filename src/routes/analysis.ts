@@ -1,15 +1,15 @@
 import express from 'express';
 import multer from 'multer';
-import { analyzeProject } from '../controllers/analysisController.js';
-import { handleCachedZipAnalysis } from '../controllers/migrationController.js';
-import { register, login, logout } from '../controllers/authController.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { analyzeProject } from '../controllers/analysisController';
+import { handleCachedZipAnalysis } from '../controllers/migrationController';
+import { register, login, logout } from '../controllers/authController';
+import { verifyToken } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
 const storage = multer.diskStorage({
     destination: './uploads',
-    filename: (req, file, cb) => {
+    filename: (req: any, file: any, cb: any) => {
         cb(null, 'cached.zip');
     }
 });
@@ -24,7 +24,7 @@ router.post('/analyze-project', verifyToken, upload.single('folder'), analyzePro
 // Migration Routes
 router.post('/migration-project', verifyToken, handleCachedZipAnalysis);
 
-// User Authentication Flow
+// User Authentication Routes
 router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.post('/auth/logout', logout);
