@@ -1,9 +1,4 @@
-import simpleGit from "simple-git";
-import tmp from "tmp";
-import fs from "fs-extra";
-import path from "path";
-import AdmZip from "adm-zip";
-
+// Analysis Prompt
 export const ANALYSIS_PROMPT = `Analyzing a legacy JSP project. Your goal is to perform a comprehensive review of the provided frontend project files and return a detailed, structured JSON object containing the analysis results and a roadmap for migrating the project to ReactJS
 IMPORTANT INSTRUCTIONS:
 Your response must be a valid JSON object only
@@ -114,8 +109,9 @@ Use the following schema and fill in each field with detailed analysis and migra
 Base your analysis only on the following project files. Do not invent content. Escape all quotes and special characters properly
  `;
 
+// Repo Analysis Prompt
 export const REPO_ANALYSIS_PROMPT = (
-  repo_url
+  repo_url: any
 ) => `Analyzing legacy JSP code for conversion to modern React. Analyze ONLY the provided frontend code of repo (.jsp, .jspx, .jspf, .html, .css, .js, .xml, .properties) and generate a comprehensive analysis report in valid JSON format.
  
  
@@ -315,8 +311,10 @@ Final Output:
 - Do not include explanations outside of JSON. Only return the JSON objects.
 `;
 
-// Migration prompt
-//  latest migration prompt 20-11-25
+/**
+ * Project Migration prompt
+ * latest migration prompt 20-11-25
+*/
 export const MIGRATION_PROMPT = `
 You are converting a legacy JSP (Java Server Pages) web application into a fully client-side, modern React project. 
 Your output must generate a clean, production-ready Vite + TypeScript React codebase using officially supported, stable frontend libraries. 
@@ -519,107 +517,4 @@ Only produce output once all checks pass successfully.
 ---
 `;
 
-export const ALLOWED_EXTENSIONS = [
-  ".jsp",
-  ".jspx",
-  ".jspf",
-  ".html",
-  ".htm",
-  ".css",
-  ".js",
-  ".xml",
-  ".properties",
-];
 
-const MAX_DEPTH = 10;
-/**
- * Clones a Git repository and checks if it contains any `.jsp` files.
- * Limits directory traversal depth and handles permission errors safely.
- *
- * @param {string} repoUrl - The URL of the Git repository to clone.
- * @returns {Promise<boolean>} - Returns true if any `.jsp` file is found, otherwise false.
- */
-
-export async function checkRepoForJsp(repoUrl) {
-  const tmpDir = tmp.dirSync({ unsafeCleanup: true });
-  const repoPath = tmpDir.name;
-  const git = simpleGit();
-
-  try {
-    await git.clone(repoUrl, repoPath);
-
-    let containsJsp = false;
-    const collectedFiles = [];
-
-    const checkFiles = async (dir, depth = 0, relativeDir = "") => {
-      if (depth > MAX_DEPTH) return;
-
-      let files;
-      try {
-        files = await fs.readdir(dir);
-      } catch (err) {
-        if (err.code === "EACCES") {
-          console.warn(`Permission denied: ${dir}`);
-          return;
-        }
-        throw err;
-      }
-
-      for (const file of files) {
-        const fullPath = path.join(dir, file);
-        let stat;
-        try {
-          stat = await fs.stat(fullPath);
-        } catch (err) {
-          if (err.code === "EACCES") {
-            console.warn(`Permission denied: ${fullPath}`);
-            continue;
-          }
-          throw err;
-        }
-
-        if (stat.isDirectory()) {
-          await checkFiles(fullPath, depth + 1, path.join(relativeDir, file));
-        } else {
-          const ext = path.extname(file).toLowerCase();
-          if (ALLOWED_EXTENSIONS.includes(ext)) {
-            if (ext === ".jsp") containsJsp = true;
-            const content = await fs.readFile(fullPath, "utf-8");
-            const fileName = path.join(relativeDir, file);
-            const parts = fileName.split("\\");
-            const relativePath = parts.slice(1).join("/");
-            collectedFiles.push({ name: relativePath, content });
-          }
-        }
-      }
-    };
-
-    await checkFiles(repoPath);
-
-    if (collectedFiles.length > 0) {
-      console.log(`Total files collected: ${collectedFiles.length}`);
-    }
-
-    return collectedFiles;
-  } catch (err) {
-    console.error(`Error processing repository: ${err.message}`);
-    return false;
-  } finally {
-    tmpDir.removeCallback(); // Always clean up
-  }
-}
-
-/**
- * Extracts all files from a ZIP buffer and returns their names and contents.
- * @param {Buffer} fileBuffer
- * @returns {Array<{name: string, content: string}>}
- */
-export function extractFilesFromZip(fileBuffer) {
-  const zip = new AdmZip(fileBuffer);
-  const zipEntries = zip.getEntries();
-
-  return zipEntries.map((entry) => ({
-    name: entry.entryName,
-    content: entry.getData().toString("utf-8"),
-  }));
-}

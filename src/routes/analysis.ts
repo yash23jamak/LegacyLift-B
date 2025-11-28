@@ -9,7 +9,7 @@ const router = express.Router();
 
 const storage = multer.diskStorage({
     destination: './uploads',
-    filename: (req, file, cb) => {
+    filename: (req: any, file: any, cb: any) => {
         cb(null, 'cached.zip');
     }
 });
@@ -24,7 +24,7 @@ router.post('/analyze-project', verifyToken, upload.single('folder'), analyzePro
 // Migration Routes
 router.post('/migration-project', verifyToken, handleCachedZipAnalysis);
 
-// User Authentication Flow
+// User Authentication Routes
 router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.post('/auth/logout', logout);

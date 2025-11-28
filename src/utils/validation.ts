@@ -1,8 +1,12 @@
-import Joi from 'joi';
+import Joi, { ObjectSchema } from 'joi';
+import { LoginRequest, RegisterRequest } from './interfaces.js';
+import { PASSWORD_REGEX } from './commonContants.js';
 
-export const registerSchema = Joi.object({
+// Register schema
+export const registerSchema: ObjectSchema<RegisterRequest> = Joi.object<RegisterRequest>({
     username: Joi.string().required(),
     email: Joi.string()
+        .email()
         .max(254)
         .required()
         .messages({
@@ -12,7 +16,7 @@ export const registerSchema = Joi.object({
     password: Joi.string()
         .min(8)
         .max(64)
-        .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d])[A-Za-z\\d\\S]{8,64}$'))
+        .pattern(PASSWORD_REGEX)
         .required()
         .messages({
             'string.pattern.base': 'Password must include at least one uppercase letter, one lowercase letter, one digit, and one special character.',
@@ -22,8 +26,10 @@ export const registerSchema = Joi.object({
         })
 });
 
-export const loginSchema = Joi.object({
+// Login schema
+export const loginSchema: ObjectSchema<LoginRequest> = Joi.object<LoginRequest>({
     email: Joi.string()
+        .email()
         .max(254)
         .required()
         .messages({
