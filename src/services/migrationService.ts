@@ -1,16 +1,18 @@
-import { MIGRATION_PROMPT, extractFilesFromZip } from "../utils/prompt.js";
-import axios from "axios";
-import dotenv from 'dotenv';
+
+import { MIGRATION_PROMPT } from "../utils/prompt.js";
+import { extractFilesFromZip } from "../utils/commonContants.js";
+import axios, { AxiosResponse } from "axios";
+import dotenv from "dotenv";
+import { ApiError, ExtractedFile, MigrationResult } from "../utils/interfaces.js";
 dotenv.config();
 
-const apiUrl = process.env.NODE_MIGRATION_API_URL;
-const apiKey = process.env.NODE_MIGRATION_API_KEY;
-const apiModel = process.env.NODE_MIGRATION_MODEL;
+const apiUrl: string | undefined = process.env.NODE_MIGRATION_API_URL;
+const apiKey: string | undefined = process.env.NODE_MIGRATION_API_KEY;
+const apiModel: string | undefined = process.env.NODE_MIGRATION_MODEL;
 
 if (!apiUrl || !apiKey || !apiModel) {
-    throw new Error('Missing required environment variables');
+  throw new Error("Missing required environment variables");
 }
-
 
 /**
  * Analyzes a migration ZIP file by:
@@ -19,32 +21,32 @@ if (!apiUrl || !apiKey || !apiModel) {
  * 3. Sending combined file content to an AI model for migration analysis.
  * 4. Parsing and validating AI response (expects JSON format).
  *
- * @param {Buffer} fileBuffer - The ZIP file buffer to analyze.
- * @returns {Promise<Array>} - Returns an array of migration analysis results.
- * @throws {Error} - If ZIP contains no files or API call fails.
+ * @param fileBuffer - The ZIP file buffer to analyze.
+ * @returns Promise<Array<MigrationResult> | ApiError>
  */
-
-export async function analyzeMigrationZip(fileBuffer) {
-  const extractedFiles = extractFilesFromZip(fileBuffer);
+export async function analyzeMigrationZip(
+  fileBuffer: Buffer
+): Promise<Array<MigrationResult> | ApiError> {
+  const extractedFiles: ExtractedFile[] = extractFilesFromZip(fileBuffer);
   if (extractedFiles.length === 0) {
     throw new Error("ZIP file contains no files for migration analysis.");
   }
 
   const CHUNK_SIZE = 5;
   const MAX_CONTENT_LENGTH = 10000;
-  const allResults = [];
+  const allResults: MigrationResult[] = [];
 
-    // Split files into chunks
-    const chunks = [];
-    for (let i = 0; i < extractedFiles.length; i += CHUNK_SIZE) {
-        chunks.push(extractedFiles.slice(i, i + CHUNK_SIZE));
-    }
+  // Split files into chunks
+  const chunks: ExtractedFile[][] = [];
+  for (let i = 0; i < extractedFiles.length; i += CHUNK_SIZE) {
+    chunks.push(extractedFiles.slice(i, i + CHUNK_SIZE));
+  }
 
-  const apiUrl =
+  const apiUrlFinal =
     process.env.NODE_MIGRATION_API_URL ||
     "https://openrouter.ai/api/v1/chat/completions";
-  const apiKey = process.env.NODE_MIGRATION_API_KEY;
-  const apiModel =
+  const apiKeyFinal = process.env.NODE_MIGRATION_API_KEY!;
+  const apiModelFinal =
     process.env.NODE_MIGRATION_MODEL || "anthropic/claude-3.5-sonnet";
 
   for (const chunk of chunks) {
@@ -61,10 +63,10 @@ export async function analyzeMigrationZip(fileBuffer) {
     const prompt = `${MIGRATION_PROMPT}\n\n${combinedContent}`;
 
     try {
-      const response = await axios.post(
-        apiUrl,
+      const response: AxiosResponse<any> = await axios.post(
+        apiUrlFinal,
         {
-          model: apiModel,
+          model: apiModelFinal,
           messages: [
             {
               role: "system",
@@ -77,18 +79,15 @@ export async function analyzeMigrationZip(fileBuffer) {
         },
         {
           headers: {
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${apiKeyFinal}`,
             "Content-Type": "application/json",
           },
         }
       );
 
-
-      let rawText = response.data.choices?.[0]?.message?.content || "";
-      rawText = rawText
-        .replace(/^```json/, "")
-        .replace(/```$/, "")
-        .trim();
+      let rawText: string =
+        response.data.choices?.[0]?.message?.content || "";
+      rawText = rawText.replace(/^```json/, "").replace(/```$/, "").trim();
 
       try {
         const parsedJson = JSON.parse(rawText);
@@ -96,7 +95,7 @@ export async function analyzeMigrationZip(fileBuffer) {
           allResults.push(...parsedJson);
           continue;
         }
-      } catch (e) {
+      } catch {
         // Attempt safe parsing
         const safeText = rawText
           .replace(/\\/g, "\\\\")
@@ -109,7 +108,7 @@ export async function analyzeMigrationZip(fileBuffer) {
             allResults.push(...parsedJson);
             continue;
           }
-        } catch (finalError) {
+        } catch {
           allResults.push({
             error: "AI response could not be parsed as valid file list.",
             rawResponse: rawText,
@@ -118,25 +117,27 @@ export async function analyzeMigrationZip(fileBuffer) {
           });
         }
       }
-    } catch (err) {
-        let errorMessage = "Failed to connect to AI service.";
-        let details = err.message;
+    } catch (err: any) {
+      let errorMessage = "Failed to connect to AI service.";
+      let details = err.message;
 
-        if (err.response) {
-            const status = err.response.status;
-            if (status === 401) errorMessage = "Unauthorized: Invalid API key.";
-            else if (status === 429) errorMessage = "Rate limit reached. Please try again later.";
-            else if (status >= 500) errorMessage = "AI service is currently unavailable.";
-            details = `Status Code: ${status}, ${err.message}`;
-        } else if (err.code === 'ENOTFOUND') {
-            errorMessage = "Network error: Unable to reach AI service.";
-        }
+      if (err.response) {
+        const status = err.response.status;
+        if (status === 401) errorMessage = "Unauthorized: Invalid API key.";
+        else if (status === 429)
+          errorMessage = "Rate limit reached. Please try again later.";
+        else if (status >= 500)
+          errorMessage = "AI service is currently unavailable.";
+        details = `Status Code: ${status}, ${err.message}`;
+      } else if (err.code === "ENOTFOUND") {
+        errorMessage = "Network error: Unable to reach AI service.";
+      }
 
-        return {
-            success: false,
-            error: errorMessage,
-            details
-        };
+      return {
+        success: false,
+        error: errorMessage,
+        details,
+      };
     }
   }
 
