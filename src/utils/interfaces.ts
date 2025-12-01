@@ -63,7 +63,7 @@ export interface ApiError {
  * Represents the user interface for Models.
  */
 export interface IUser extends Document {
-    _id?: string;
+    _id: string;
     username: string;
     email: string;
     password: string;

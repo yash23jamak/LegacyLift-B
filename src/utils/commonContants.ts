@@ -5,6 +5,15 @@ import path from "path";
 import * as simpleGit from "simple-git";
 import AdmZip from "adm-zip";
 import { CollectedFile } from "./interfaces.js"
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Environment variable type check
+const JWT_SECRET = process.env.JWT_SECRET || '';
+if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is missing in environment variables');
+}
 
 export const ALLOWED_EXTENSIONS = [
     ".jsp",
@@ -30,8 +39,7 @@ const MAX_DEPTH = 10;
 export async function checkRepoForJsp(repoUrl: string): Promise<CollectedFile[] | false> {
     const tmpDir: DirResult = tmp.dirSync({ unsafeCleanup: true });
     const repoPath: string = tmpDir.name;
-    const git: simpleGit.SimpleGit = simpleGit.simpleGit(); 
-    console.log(git,"git")
+    const git: simpleGit.SimpleGit = simpleGit.simpleGit();
 
     try {
         await git.clone(repoUrl, repoPath);
@@ -109,6 +117,16 @@ export function extractFilesFromZip(fileBuffer: Buffer): CollectedFile[] {
         content: entry.getData().toString("utf-8"),
     }));
 }
+
+/**
+ * Generate Tokens
+ */
+export const generateTokens = (userId: string) => {
+    const accessToken = jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7d' });
+    return { accessToken, refreshToken };
+};
+
 
 
 // ******* Regex Expressions For Analysis AI Response ******* //

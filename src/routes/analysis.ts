@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { analyzeProject } from '../controllers/analysisController.js';
 import { handleCachedZipAnalysis } from '../controllers/migrationController.js';
-import { register, login, logout } from '../controllers/authController.js';
+import { register, login, logout, refreshTokenHandler } from '../controllers/authController.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -27,6 +27,7 @@ router.post('/migration-project', verifyToken, handleCachedZipAnalysis);
 // User Authentication Routes
 router.post('/auth/register', register);
 router.post('/auth/login', login);
+router.post('/auth/refresh', refreshTokenHandler);
 router.post('/auth/logout', logout);
 
 export default router;

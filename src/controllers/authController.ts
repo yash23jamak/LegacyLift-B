@@ -7,14 +7,18 @@ import BlacklistedToken from '../models/BlacklistedToken.js';
 import { IUser } from '../utils/interfaces.js'
 import { registerSchema, loginSchema } from '../utils/validation.js';
 import dotenv from 'dotenv';
+import CryptoJS from "crypto-js";
+import { generateTokens } from '../utils/commonContants.js';
 dotenv.config();
 
-// ✅ Environment variable type check
 const JWT_SECRET = process.env.JWT_SECRET || '';
 if (!JWT_SECRET) {
     throw new Error('JWT_SECRET is missing in environment variables');
 }
-
+const secretKey = process.env.NODE_ENCRYPTION_KEY;
+if (!secretKey) {
+    throw new Error('NODE_ENCRYPTION_KEY is missing in environment variables');
+}
 /**
  * @function register
  * @description Handles user registration.
@@ -72,24 +76,35 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         const { email, password }: { email: string; password: string } = req.body;
 
+        const bytes = CryptoJS.AES.decrypt(password, secretKey);
+        const decryptedPassword = bytes.toString(CryptoJS.enc.Utf8);
+
         const user: IUser | null = await User.findOne({ email });
         if (!user) {
             res.status(StatusCodes.NOT_FOUND).json({ message: 'User not found' });
             return;
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        // Compare decrypted password with hashed password
+        const isMatch = await bcrypt.compare(decryptedPassword, user.password);
         if (!isMatch) {
             res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid credentials' });
             return;
         }
 
-        const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1d' });
+        const { accessToken, refreshToken } = generateTokens(user._id.toString());
 
         res.cookie('accessToken', accessToken, {
             httpOnly: true,
             sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000
+            maxAge: 15 * 60 * 1000
+        });
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: true,
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.status(StatusCodes.OK).json({
@@ -106,37 +121,61 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 /**
+ * @function refreshToken
+ * @description Refreshes the access token using the refresh token.
+ */
+export const refreshTokenHandler = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const refreshToken = req.cookies.refreshToken;
+        if (!refreshToken) {
+            res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Refresh token missing' });
+            return;
+        }
+
+        const decoded = jwt.verify(refreshToken, JWT_SECRET) as jwt.JwtPayload & { id: string };
+        const { accessToken, refreshToken: newRefreshToken } = generateTokens(decoded.id);
+
+        res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: true,
+            maxAge: 15 * 60 * 1000
+        });
+
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: true,
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.status(StatusCodes.OK).json({ message: 'Access token refreshed' });
+    } catch (error) {
+        res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Invalid or expired refresh token' });
+    }
+};
+
+/**
  * @function logout
- * @description Logs out the user by blacklisting the token and clearing the cookie.
  */
 export const logout = async (req: Request, res: Response): Promise<void> => {
     try {
-        const token = req.cookies.accessToken;
-        if (token) {
-            const decoded = jwt.decode(token) as jwt.JwtPayload | null;
-            if (decoded && decoded.exp) {
+        const refreshToken = req.cookies.refreshToken;
+        if (refreshToken) {
+            const decoded = jwt.decode(refreshToken) as jwt.JwtPayload | null;
+            if (decoded?.exp) {
                 await BlacklistedToken.create({
-                    token,
+                    token: refreshToken,
                     expiresAt: new Date(decoded.exp * 1000)
                 });
             }
         }
 
-        res.clearCookie('accessToken', {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'lax',
-            path: '/'
-        });
+        res.clearCookie('accessToken', { httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
+        res.clearCookie('refreshToken', { httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
 
-        res.status(StatusCodes.OK).json({
-            status: StatusCodes.OK,
-            message: 'User logged out successfully'
-        });
+        res.status(StatusCodes.OK).json({ message: 'User logged out successfully' });
     } catch (error: any) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-            status: StatusCodes.INTERNAL_SERVER_ERROR,
-            error: error.message
-        });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
     }
 };

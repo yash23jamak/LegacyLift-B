@@ -9,7 +9,7 @@ import path from 'path';
 import { StatusCodes } from 'http-status-codes';
 import { Request, Response } from 'express';
 
-const zipPath = path.join(process.cwd(), 'uploads', 'cached.zip');
+const cachedZipPath: string = path.join(process.cwd(), 'uploads', 'cached.zip');
 
 /**
  * Analyzes a project based on different input types:
@@ -27,21 +27,22 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
 
         // ✅ Step 1: ZIP uploaded
         if (req.file) {
-            const zipPath = req.file.path;
-            const buffer = fs.readFileSync(zipPath);
+            const uploadedZipPath = req.file.path;
+            const buffer = fs.readFileSync(uploadedZipPath);
             const zipOriginalName = req.file.originalname;
 
             const userId = (req as any).user?._id as string;
 
-            const report = await analyzeZipFile(
+            report = await analyzeZipFile(
                 buffer,
                 req.body.filterZip as string,
                 userId,
                 zipOriginalName
             );
 
-            // ✅ Check if AI returned an error
-            if (report && report && report.some((r: any) => r.error)) {
+
+            // Check if AI returned an error
+            if (report && report.some((r: any) => r.error)) {
                 return res.status(StatusCodes.BAD_GATEWAY).json({
                     status: StatusCodes.BAD_GATEWAY,
                     message: 'AI service failed during ZIP analysis',
@@ -68,11 +69,11 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
 
             report = await analyzeRepo(repoUrl);
 
-            // Handle AI failure
-            if (report && report && report.some((r: any) => r.error)) {
+
+            if (report && report.some((r: any) => r.error)) {
                 return res.status(StatusCodes.BAD_GATEWAY).json({
                     status: StatusCodes.BAD_GATEWAY,
-                    message: 'AI service failed during ZIP analysis',
+                    message: 'AI service failed during repository analysis',
                     error: report.find((r: any) => r.error)?.error || 'Unknown AI error',
                     raw: report.find((r: any) => r.error)?.raw || null
                 });
@@ -85,19 +86,19 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
             });
         }
 
-        // ✅ Step 3: Generate Migration Report
+        // Step 3: Generate Migration Report
         if (req.body.generateMigrationReport === true) {
-            if (!zipPath || !fs.existsSync(zipPath)) {
+            if (!cachedZipPath || !fs.existsSync(cachedZipPath)) {
                 return res.status(StatusCodes.BAD_REQUEST).json({
                     status: StatusCodes.BAD_REQUEST,
                     error: "No ZIP file has been uploaded yet."
                 });
             }
 
-            const buffer = fs.readFileSync(zipPath);
+            const buffer = fs.readFileSync(cachedZipPath);
             const result = await generateMigrationReport(buffer);
 
-            // ✅ Check if result exists and has a valid structure
+            // Check if result exists and has a valid structure
             if (!result || !result.report || !Array.isArray(result.report)) {
                 return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
                     status: StatusCodes.INTERNAL_SERVER_ERROR,
