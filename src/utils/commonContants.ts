@@ -6,6 +6,7 @@ import * as simpleGit from "simple-git";
 import AdmZip from "adm-zip";
 import { CollectedFile } from "./interfaces.js"
 import jwt from 'jsonwebtoken';
+import CryptoJS from "crypto-js";
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -127,10 +128,27 @@ export const generateTokens = (userId: string) => {
     return { accessToken, refreshToken };
 };
 
+export function decryptPassword(encryptedPassword: string, secretKey: string): string {
+    try {
+        if (!encryptedPassword || !secretKey) {
+            throw new Error('Missing encrypted password or secret key');
+        }
 
+        const bytes = CryptoJS.AES.decrypt(encryptedPassword, secretKey);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+        if (!decrypted) {
+            throw new Error('Decryption failed. Possibly wrong key or corrupted data.');
+        }
+
+        return decrypted;
+    } catch (err) {
+        console.error('Password decryption error:', err);
+        return '';
+    }
+}
 
 // ******* Regex Expressions For Analysis AI Response ******* //
-
 /**
  * Regex to extract JSON content inside triple backticks (```json ... ```).
  */

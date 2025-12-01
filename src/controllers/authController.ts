@@ -7,15 +7,14 @@ import BlacklistedToken from '../models/BlacklistedToken.js';
 import { IUser } from '../utils/interfaces.js'
 import { registerSchema, loginSchema } from '../utils/validation.js';
 import dotenv from 'dotenv';
-import CryptoJS from "crypto-js";
-import { generateTokens } from '../utils/commonContants.js';
+import { decryptPassword, generateTokens } from '../utils/commonContants.js';
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || '';
 if (!JWT_SECRET) {
     throw new Error('JWT_SECRET is missing in environment variables');
 }
-const secretKey = process.env.NODE_ENCRYPTION_KEY;
+const secretKey = process.env.NODE_ENCRYPTION_KEY as string;
 if (!secretKey) {
     throw new Error('NODE_ENCRYPTION_KEY is missing in environment variables');
 }
@@ -76,49 +75,61 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         const { email, password }: { email: string; password: string } = req.body;
 
-        const bytes = CryptoJS.AES.decrypt(password, secretKey);
-        const decryptedPassword = bytes.toString(CryptoJS.enc.Utf8);
+        // If password looks encrypted (starts with AES prefix), decrypt it
+        let finalPassword: string;
+        if (password.startsWith("U2FsdGVk")) {
+            finalPassword = decryptPassword(password, secretKey);
+            if (!finalPassword) {
+                res.status(StatusCodes.BAD_REQUEST).json({ message: "Invalid encrypted password" });
+                return;
+            }
+        } else {
+            // Plain password fallback for Postman or legacy clients
+            finalPassword = password;
+        }
 
         const user: IUser | null = await User.findOne({ email });
         if (!user) {
-            res.status(StatusCodes.NOT_FOUND).json({ message: 'User not found' });
+            res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
             return;
         }
 
-        // Compare decrypted password with hashed password
-        const isMatch = await bcrypt.compare(decryptedPassword, user.password);
+        const isMatch = await bcrypt.compare(finalPassword, user.password);
         if (!isMatch) {
-            res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid credentials' });
+            res.status(StatusCodes.BAD_REQUEST).json({ message: "Invalid credentials" });
             return;
         }
 
+        // Generate tokens
         const { accessToken, refreshToken } = generateTokens(user._id.toString());
 
-        res.cookie('accessToken', accessToken, {
+        // Set cookies securely
+        res.cookie("accessToken", accessToken, {
             httpOnly: true,
-            sameSite: 'lax',
-            maxAge: 15 * 60 * 1000
+            sameSite: "lax",
+            maxAge: 15 * 60 * 1000,
         });
 
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            sameSite: 'lax',
+            sameSite: "lax",
             secure: true,
-            maxAge: 7 * 24 * 60 * 60 * 1000
+            maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
         res.status(StatusCodes.OK).json({
-            username: user?.username,
+            username: user.username,
             status: StatusCodes.OK,
-            message: 'User logged in successfully'
+            message: "User logged in successfully",
         });
     } catch (error: any) {
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
             status: StatusCodes.INTERNAL_SERVER_ERROR,
-            error: error.message
+            error: "Something went wrong. Please try again later.",
         });
     }
 };
+
 
 /**
  * @function refreshToken
