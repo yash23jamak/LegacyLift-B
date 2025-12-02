@@ -6,8 +6,8 @@ import User from '../models/User.js';
 import BlacklistedToken from '../models/BlacklistedToken.js';
 import { IUser } from '../utils/interfaces.js'
 import { registerSchema, loginSchema } from '../utils/validation.js';
-import dotenv from 'dotenv';
 import { decryptPassword, generateTokens } from '../utils/commonContants.js';
+import dotenv from 'dotenv';
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || '';
@@ -75,18 +75,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         const { email, password }: { email: string; password: string } = req.body;
 
-        // If password looks encrypted (starts with AES prefix), decrypt it
+        // Decrypt password if encrypted, else fallback to plain text
         let finalPassword: string;
-        if (password.startsWith("U2FsdGVk")) {
+        try {
             finalPassword = decryptPassword(password, secretKey);
             if (!finalPassword) {
-                res.status(StatusCodes.BAD_REQUEST).json({ message: "Invalid encrypted password" });
-                return;
+                // If decryption fails, assume plain password (Postman fallback)
+                finalPassword = password;
             }
-        } else {
-            // Plain password fallback for Postman or legacy clients
+        } catch {
             finalPassword = password;
         }
+
 
         const user: IUser | null = await User.findOne({ email });
         if (!user) {

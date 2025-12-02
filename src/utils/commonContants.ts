@@ -6,7 +6,7 @@ import * as simpleGit from "simple-git";
 import AdmZip from "adm-zip";
 import { CollectedFile } from "./interfaces.js"
 import jwt from 'jsonwebtoken';
-import CryptoJS from "crypto-js";
+import crypto from "crypto";
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -128,27 +128,39 @@ export const generateTokens = (userId: string) => {
     return { accessToken, refreshToken };
 };
 
-export function decryptPassword(encryptedPassword: string, secretKey: string): string {
+/**
+ * Decrypt AES-GCM encrypted password
+ * @param encryptedBase64 - Base64 encoded string (IV + ciphertext + auth tag)
+ * @param secretKey - Shared secret key
+ */
+export function decryptPassword(encryptedBase64: string, secretKey: string): string {
     try {
-        if (!encryptedPassword || !secretKey) {
-            throw new Error('Missing encrypted password or secret key');
+        const combined = Buffer.from(encryptedBase64, "base64");
+
+        if (combined.length < 28) {
+            throw new Error("Invalid encrypted data format");
         }
 
-        const bytes = CryptoJS.AES.decrypt(encryptedPassword, secretKey);
-        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+        const iv = combined.subarray(0, 12);
+        const authTag = combined.subarray(combined.length - 16);
+        const ciphertext = combined.subarray(12, combined.length - 16);
 
-        if (!decrypted) {
-            throw new Error('Decryption failed. Possibly wrong key or corrupted data.');
+        const key = crypto.pbkdf2Sync(secretKey, "fixed-salt", 100000, 32, "sha256");
+
+        const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+        decipher.setAuthTag(authTag);
+
+        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return decrypted.toString("utf8");
+    } catch (err: any) {
+        if (err.code === "ERR_CRYPTO_INVALID_AUTH_TAG") {
+            throw new Error("Invalid password");
+        } else {
+            throw err;
         }
-
-        return decrypted;
-    } catch (err) {
-        console.error('Password decryption error:', err);
-        return '';
     }
 }
 
-// ******* Regex Expressions For Analysis AI Response ******* //
 /**
  * Regex to extract JSON content inside triple backticks (```json ... ```).
  */
