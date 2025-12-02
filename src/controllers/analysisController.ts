@@ -41,7 +41,7 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
             );
 
             // ✅ Check if AI returned an error
-            if (report && report && report.some((r: any) => r.error)) {
+            if (report && report.some((r: any) => r.error)) {
                 return res.status(StatusCodes.BAD_GATEWAY).json({
                     status: StatusCodes.BAD_GATEWAY,
                     message: 'AI service failed during ZIP analysis',
@@ -69,7 +69,7 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
             report = await analyzeRepo(repoUrl);
 
             // Handle AI failure
-            if (report && report && report.some((r: any) => r.error)) {
+            if (report && report.some((r: any) => r.error)) {
                 return res.status(StatusCodes.BAD_GATEWAY).json({
                     status: StatusCodes.BAD_GATEWAY,
                     message: 'AI service failed during ZIP analysis',

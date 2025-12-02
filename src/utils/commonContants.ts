@@ -5,6 +5,16 @@ import path from "path";
 import * as simpleGit from "simple-git";
 import AdmZip from "adm-zip";
 import { CollectedFile } from "./interfaces.js"
+import jwt from 'jsonwebtoken';
+import crypto from "crypto";
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Environment variable type check
+const JWT_SECRET = process.env.JWT_SECRET || '';
+if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is missing in environment variables');
+}
 
 export const ALLOWED_EXTENSIONS = [
     ".jsp",
@@ -30,8 +40,7 @@ const MAX_DEPTH = 10;
 export async function checkRepoForJsp(repoUrl: string): Promise<CollectedFile[] | false> {
     const tmpDir: DirResult = tmp.dirSync({ unsafeCleanup: true });
     const repoPath: string = tmpDir.name;
-    const git: simpleGit.SimpleGit = simpleGit.simpleGit(); 
-    console.log(git,"git")
+    const git: simpleGit.SimpleGit = simpleGit.simpleGit();
 
     try {
         await git.clone(repoUrl, repoPath);
@@ -110,8 +119,47 @@ export function extractFilesFromZip(fileBuffer: Buffer): CollectedFile[] {
     }));
 }
 
+/**
+ * Generate Tokens
+ */
+export const generateTokens = (userId: string) => {
+    const accessToken = jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7d' });
+    return { accessToken, refreshToken };
+};
 
-// ******* Regex Expressions For Analysis AI Response ******* //
+/**
+ * Decrypt AES-GCM encrypted password
+ * @param encryptedBase64 - Base64 encoded string (IV + ciphertext + auth tag)
+ * @param secretKey - Shared secret key
+ */
+export function decryptPassword(encryptedBase64: string, secretKey: string): string {
+    try {
+        const combined = Buffer.from(encryptedBase64, "base64");
+
+        if (combined.length < 28) {
+            throw new Error("Invalid encrypted data format");
+        }
+
+        const iv = combined.subarray(0, 12);
+        const authTag = combined.subarray(combined.length - 16);
+        const ciphertext = combined.subarray(12, combined.length - 16);
+
+        const key = crypto.pbkdf2Sync(secretKey, "fixed-salt", 100000, 32, "sha256");
+
+        const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+        decipher.setAuthTag(authTag);
+
+        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return decrypted.toString("utf8");
+    } catch (err: any) {
+        if (err.code === "ERR_CRYPTO_INVALID_AUTH_TAG") {
+            throw new Error("Invalid password");
+        } else {
+            throw err;
+        }
+    }
+}
 
 /**
  * Regex to extract JSON content inside triple backticks (```json ... ```).
