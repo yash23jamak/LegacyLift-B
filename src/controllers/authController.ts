@@ -24,40 +24,39 @@ if (!secretKey) {
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { error } = registerSchema.validate(req.body);
+        const { username, email, password }: { username: string; email: string; password: string } = req.body;
+
+        let decryptedPassword: string;
+        try {
+            decryptedPassword = decryptPassword(password, secretKey);
+        } catch {
+            res.status(StatusCodes.BAD_REQUEST).json({ error: "Invalid encrypted password format" });
+            return;
+        }
+
+        // Validate decrypted password against schema
+        const { error } = registerSchema.validate({ username, email, password: decryptedPassword });
         if (error) {
             res.status(StatusCodes.BAD_REQUEST).json({ error: error.details[0].message });
             return;
         }
 
-        const { username, email, password }: { username: string; email: string; password: string } = req.body;
-
-        const existingUser = await User.findOne({
-            $or: [{ email }, { username }]
-        });
-
+        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
         if (existingUser) {
-            if (existingUser.email === email) {
-                res.status(StatusCodes.CONFLICT).json({ message: 'Email already registered' });
-            } else if (existingUser.username === username) {
-                res.status(StatusCodes.CONFLICT).json({ message: 'Username already taken' });
-            }
+            res.status(StatusCodes.CONFLICT).json({
+                message: existingUser.email === email ? "Email already registered" : "Username already taken"
+            });
             return;
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Hash decrypted password
+        const hashedPassword = await bcrypt.hash(decryptedPassword, 10);
         const user = new User({ username, email, password: hashedPassword });
 
         await user.save();
-        res.status(StatusCodes.CREATED).json({
-            status: StatusCodes.CREATED,
-            message: 'User registered successfully'
-        });
+        res.status(StatusCodes.CREATED).json({ status: StatusCodes.CREATED, message: "User registered successfully" });
     } catch (error: any) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-            status: StatusCodes.INTERNAL_SERVER_ERROR,
-            error: error.message
-        });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ status: StatusCodes.INTERNAL_SERVER_ERROR, error: error.message });
     }
 };
 
