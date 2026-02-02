@@ -36,7 +36,7 @@ if (!apiUrl || !apiKey || !apiModel) {
 export async function analyzeZipFile(
   fileBuffer: Buffer,
   zipType: string,
-  userId: string,
+  // userId: string,
   zipOriginalName: string
 ): Promise<any[]> {
   const zip = new AdmZip(fileBuffer);
@@ -69,7 +69,7 @@ export async function analyzeZipFile(
       fs.writeFileSync(filePath, file.content);
     }
 
-    await User.findByIdAndUpdate(userId, { projectPath: uploadDir }, { new: true });
+    // await User.findByIdAndUpdate(userId, { projectPath: uploadDir }, { new: true });
 
     const combinedContent = files.map(f => `File: ${f.name}\n${f.content}`).join("\n\n");
     const prompt = `${ANALYSIS_PROMPT}:\n\n${combinedContent}`;
