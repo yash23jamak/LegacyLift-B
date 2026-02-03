@@ -31,12 +31,12 @@ export async function analyzeProject(req: Request, res: Response): Promise<Respo
             const buffer = fs.readFileSync(zipPath);
             const zipOriginalName = req.file.originalname;
 
-            const userId = (req as any).user?._id as string;
+            // const userId = (req as any).user?._id as string;
 
             const report = await analyzeZipFile(
                 buffer,
                 req.body.filterZip as string,
-                userId,
+                // userId,
                 zipOriginalName
             );
 

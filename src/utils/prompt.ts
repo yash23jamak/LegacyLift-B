@@ -316,8 +316,8 @@ Final Output:
  * latest migration prompt 20-11-25
 */
 export const MIGRATION_PROMPT = `
-You are converting a legacy JSP (Java Server Pages) web application into a fully client-side, modern React project. 
-Your output must generate a clean, production-ready Vite + TypeScript React codebase using officially supported, stable frontend libraries. 
+You are converting a legacy JSP (Java Server Pages) web application into a fully client-side, modern React project.
+Your output must generate a clean, production-ready Vite + TypeScript React codebase using officially supported, stable frontend libraries.
 All configuration and source files must be syntactically valid, compilable, runnable, and properly formatted.
 
 ---
@@ -494,7 +494,7 @@ Return a JSON array like:
 ]
 \`\`\`
 
-Each "content" field must represent actual code, not escaped strings. 
+Each "content" field must represent actual code, not escaped strings.
 All files must be valid as-is when written to disk.
 
 ---
@@ -516,5 +516,3 @@ Only produce output once all checks pass successfully.
 
 ---
 `;
-
-
